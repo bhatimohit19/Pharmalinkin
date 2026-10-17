@@ -14,7 +14,7 @@
     setSession(id, remember) { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); (remember ? localStorage : sessionStorage).setItem('pl_session', id); }); },
     logout() { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); }); },
     roleLabel: r => ROLE_LABEL[r] || r,
-    homeFor(u) { if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/onboarding/done' : '/onboarding'; return !u ? '/' : { candidate: '/app/dashboard', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
+    homeFor(u) { if (u && u.role === 'recruiter' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/employer/dashboard' : '/employer/onboarding'; if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/onboarding/done' : '/onboarding'; return !u ? '/' : { candidate: '/app/dashboard', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
     requireLogin(next, msg = 'Please sign in to continue.') { safe(() => sessionStorage.setItem(NEXT_KEY, next || '')); ui().toast(msg, 'info'); PL.go('/login'); },
     takeNext() { const n = safe(() => sessionStorage.getItem(NEXT_KEY)); safe(() => sessionStorage.removeItem(NEXT_KEY)); return n; },
     hasNext() { return !!safe(() => sessionStorage.getItem(NEXT_KEY)); },
@@ -27,7 +27,7 @@
     { role: 'Advertiser', email: 'a1@demo.pharmalinkin.example', name: 'Pooja Shah', icon: 'megaphone', desc: 'Praxis Medical Education' },
     { role: 'Super Admin', email: 'admin@demo.pharmalinkin.example', name: 'Platform Admin', icon: 'shield', desc: 'Moderation & reports' }
   ];
-  const demoPanel = () => `<div class="card pad"><h3>${ui().icon('zap', 18)} Demo access panel</h3><p class="muted small">Try the onboarding with a ready-made account, or register your own. Password: <code>${PL.DEMO_PW}</code>. This is a prototype – no real authentication is performed.</p><div class="stack-sm">${demoAccounts.filter(a => !PL.onboardingOnly() || a.role === 'Candidate').map(a => `<div class="row between nowrap card pad" style="padding:10px 12px;box-shadow:none"><div class="row nowrap" style="gap:10px">${ui().icon(a.icon, 20)}<div><div class="bold small">${a.role}</div><div class="xs muted">${a.name} · ${a.desc}</div></div></div><div class="row nowrap"><button class="btn btn-secondary btn-sm" data-action="demo-fill" data-email="${a.email}">Fill</button><button class="btn btn-sm" data-action="demo-login" data-email="${a.email}">Sign in</button></div></div>`).join('')}</div></div>`;
+  const demoPanel = () => `<div class="card pad"><h3>${ui().icon('zap', 18)} Demo access panel</h3><p class="muted small">Try the onboarding with a ready-made account, or register your own. Password: <code>${PL.DEMO_PW}</code>. This is a prototype – no real authentication is performed.</p><div class="stack-sm">${demoAccounts.filter(a => !PL.onboardingOnly() || a.role === 'Candidate' || (a.role.startsWith('Recruiter') && PL.employerOn())).map(a => `<div class="row between nowrap card pad" style="padding:10px 12px;box-shadow:none"><div class="row nowrap" style="gap:10px">${ui().icon(a.icon, 20)}<div><div class="bold small">${a.role}</div><div class="xs muted">${a.name} · ${a.desc}</div></div></div><div class="row nowrap"><button class="btn btn-secondary btn-sm" data-action="demo-fill" data-email="${a.email}">Fill</button><button class="btn btn-sm" data-action="demo-login" data-email="${a.email}">Sign in</button></div></div>`).join('')}</div></div>`;
 
   function doLogin(u, remember) {
     PL.auth.setSession(u.id, remember);
@@ -72,6 +72,7 @@
     const acct = { title: 'Account', intro: 'Your sign-in details.', html: '' };
     if (role === 'candidate') return [
       { title: 'Create your account', html: [F({ name: 'name', label: 'Full name', required: true, autocomplete: 'name' }), F({ name: 'email', label: 'Email', type: 'email', required: true, autocomplete: 'email' }), F({ name: 'phone', label: 'Mobile number', type: 'tel', required: true, placeholder: '+91 98XXXXXXXX' }), ...pass, terms].join('') }];
+    if (role === 'recruiter' && PL.onboardingOnly()) return [{ title: 'Create your account', html: [F({ name: 'name', label: 'Full name', required: true, autocomplete: 'name' }), F({ name: 'email', label: 'Work email', type: 'email', required: true }), F({ name: 'phone', label: 'Mobile number', type: 'tel', required: true, placeholder: '+91 98XXXXXXXX' }), F({ name: 'designation', label: 'Your designation', required: true, placeholder: 'e.g. HR Manager' }), F({ name: 'company', label: 'Company name', required: true }), F({ name: 'website', label: 'Company website', type: 'url', required: true, placeholder: 'https://' }), F({ name: 'industry', label: 'Industry', type: 'select', options: PL.INDUSTRIES, placeholder: 'Select…', required: true }), F({ name: 'size', label: 'Company size', type: 'select', options: PL.SIZES, placeholder: 'Select…', required: true }), ...pass, terms].join('') }];
     if (role === 'recruiter') return [
       { title: 'Personal details', html: [F({ name: 'name', label: 'Full name', required: true }), F({ name: 'email', label: 'Work email', type: 'email', required: true }), F({ name: 'phone', label: 'Phone', type: 'tel', required: true }), F({ name: 'designation', label: 'Designation', required: true })].join('') },
       { title: 'Company details', html: [F({ name: 'company', label: 'Company name', required: true }), F({ name: 'website', label: 'Company website', type: 'url', required: true, placeholder: 'https://' }), F({ name: 'industry', label: 'Industry', type: 'select', options: PL.INDUSTRIES, placeholder: 'Select…', required: true }), F({ name: 'size', label: 'Company size', type: 'select', options: PL.SIZES, placeholder: 'Select…', required: true })].join('') },
@@ -82,19 +83,33 @@
       { title: 'Secure your account', html: pass.join('') + terms }];
   }
   PL.router.add('/register', ctx => {
-    const role = PL.onboardingOnly() ? 'candidate' : ctx.query.role;
-    if (!['candidate', 'recruiter', 'advertiser'].includes(role)) {
+    const role = ctx.query.role;
+    if (role === 'recruiter' && !PL.employerOn()) { PL.go('/register'); return ''; }
+    if (!(PL.onboardingOnly() ? ['candidate', 'recruiter'] : ['candidate', 'recruiter', 'advertiser']).includes(role)) {
       const rc = (r, ic, t, d) => `<a class="role-card" href="#/register?role=${r}" style="display:block;text-decoration:none;color:inherit"><span>${ui().icon(ic, 28)}</span><h3 style="margin-top:8px">${t}</h3><p class="muted small" style="margin:0">${d}</p></a>`;
-      return `<div class="auth-wrap"><div class="card auth-card wide"><h1 style="font-size:1.6rem">Create your account</h1><p class="muted">Choose the account type that fits you. (Administrator accounts cannot be created here.)</p><div class="grid g3 mt">${rc('candidate', 'user', 'Candidate / Healthcare professional', 'Find jobs, grow your network and track applications.')}${rc('recruiter', 'briefcase', 'Recruiter / Employer', 'Post jobs, manage applicants and discover talent.')}${rc('advertiser', 'megaphone', 'Advertiser', 'Promote hiring drives, webinars, courses and products.')}</div><p class="small mt" style="text-align:center">Already registered? <a href="#/login">Sign in</a></p></div></div>`;
+      return `<div class="auth-wrap"><div class="card auth-card wide"><h1 style="font-size:1.6rem">Create your account</h1><p class="muted">How do you want to use PharmaLinkIn?</p><div class="grid ${PL.onboardingOnly() ? 'g2' : 'g3'} mt">${rc('candidate', 'user', "I\u0027m a Candidate", 'Find jobs, grow your network and track applications.')}${PL.onboardingOnly() ? (PL.employerOn() ? rc('recruiter', 'briefcase', "I'm an Employer", 'Post jobs, manage applicants and discover talent.') : `<div class="role-card" aria-disabled="true" style="opacity:.55;cursor:not-allowed"><span>${ui().icon('briefcase', 28)}</span><h3 style="margin-top:8px">I'm an Employer</h3><p class="muted small" style="margin:0">Coming soon</p></div>`) : rc('recruiter', 'briefcase', "I'm an Employer", 'Post jobs, manage applicants and discover talent.')}${PL.onboardingOnly() ? '' : rc('advertiser', 'megaphone', 'Advertiser', 'Promote hiring drives, webinars, courses and products.')}</div><p class="small mt" style="text-align:center">Already registered? <a href="#/login">Sign in</a></p></div></div>`;
     }
     const title = { candidate: 'Candidate registration', recruiter: 'Employer registration', advertiser: 'Advertiser registration' }[role];
-    if (role === 'candidate' && PL.onboardingOnly()) return PL.onb.shell(0, `<div class="onb-head"><h2>Create your account</h2><p class="muted">Start with your basic details. Next we'll verify your mobile and email.</p></div>${ui().notice('Demo prototype: details stay in your browser only. No email or SMS is sent.', '')}<form data-form="register" data-role="candidate" novalidate class="mt"><div class="form-grid">${regSteps('candidate')[0].html}</div><button class="btn btn-lg btn-block mt" type="submit">Create account &amp; continue</button></form><p class="small mt" style="text-align:center">Already registered? <a href="#/login">Sign in</a></p>`);
-    return `<div class="auth-wrap"><div class="card auth-card wide">${PL.onboardingOnly() ? '' : `<a href="#/register" class="small">${ui().icon('left', 14)} Change account type</a>`}<h1 style="font-size:1.6rem;margin-top:8px">${title}</h1>${ui().notice('Demo prototype: details stay in your browser only. No email or SMS is sent.', '')}<div class="mt">${ui().stepForm({ attrs: `data-form="register" data-role="${role}"`, steps: regSteps(role), submit: 'Create account' })}</div></div></div>`;
+    if (role === 'candidate' && PL.onboardingOnly()) {
+      const F = ui().field, I = ui().icon;
+      const cc = ['+91', '+1', '+44', '+971', '+65', '+61'].map(c => `<option>${c}</option>`).join('');
+      return PL.onb.shell(0, `<div class="onb-head"><h2>Create your account</h2><p class="muted">Let's get started with your basic details.</p></div><form data-form="register" data-role="candidate" novalidate><div class="form-grid">${F({ name: 'first', label: 'First Name', required: true, autocomplete: 'given-name', placeholder: 'Enter first name' })}${F({ name: 'last', label: 'Surname', required: true, autocomplete: 'family-name', placeholder: 'Enter surname' })}
+        <div class="field full"><label>Mobile Number <span class="req">*</span></label><div class="phone-row"><select name="cc" aria-label="Country code">${cc}</select><input name="phone" type="tel" required inputmode="numeric" placeholder="Enter mobile number" autocomplete="tel-national"></div></div>
+        ${F({ name: 'email', label: 'Email', type: 'email', required: true, full: true, autocomplete: 'email', placeholder: 'Enter your email' })}${F({ name: 'password', label: 'Password', type: 'password', required: true, minlength: 8, full: true, autocomplete: 'new-password', placeholder: 'Create a password', help: 'Minimum 8 characters' })}</div>
+        <button class="btn btn-lg btn-block mt" type="submit">Continue</button></form>
+        <div class="or-sep"><span>or</span></div>
+        <div class="social-row"><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="Google">${I('globe', 16)} Continue with Google</button><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="LinkedIn">${I('link', 16)} Continue with LinkedIn</button></div>
+        <p class="xs muted" style="text-align:center;margin-top:14px">By continuing, you agree to our <a href="#/page/terms">Terms of Service</a> and <a href="#/page/privacy">Privacy Policy</a>.</p>
+        <p style="text-align:center;margin:6px 0 0"><a class="link-btn" href="#/register">← Back</a> <span class="muted small">· Already registered? <a href="#/login">Sign in</a></span></p>`);
+    }
+    if (role === 'recruiter' && PL.onboardingOnly()) return PL.onb.shell(0, `<div class="onb-head"><h2>Create your employer account</h2><p class="muted">Tell us who you are and which company you hire for. Next we'll verify your mobile and email.</p></div>${ui().notice('Demo prototype: details stay in your browser only. No email or SMS is sent.', '')}<form data-form="register" data-role="recruiter" novalidate class="mt"><div class="form-grid">${regSteps('recruiter')[0].html}</div><button class="btn btn-lg btn-block mt" type="submit">Create account &amp; continue</button></form><p class="small mt" style="text-align:center"><a href="#/register">Change account type</a> · Already registered? <a href="#/login">Sign in</a></p>`, false, 'e');
+    return `<div class="auth-wrap"><div class="card auth-card wide"><a href="#/register" class="small">${ui().icon('left', 14)} Change account type</a><h1 style="font-size:1.6rem;margin-top:8px">${title}</h1>${ui().notice('Demo prototype: details stay in your browser only. No email or SMS is sent.', '')}<div class="mt">${ui().stepForm({ attrs: `data-form="register" data-role="${role}"`, steps: regSteps(role), submit: 'Create account' })}</div></div></div>`;
   }, { layout: 'auth', title: 'Register', guestOnly: true });
   PL.form('register', f => {
     if (!ui().validate(f)) return;
     const role = f.dataset.role, d = ui().formData(f);
     if (PL.auth.emailTaken(d.email)) { ui().setError(f, 'email', 'This email is already registered in the demo data. Try signing in.'); f.querySelector('[name=email]').focus(); return; }
+    if (d.first) { d.name = (d.first + ' ' + (d.last || '')).trim(); d.phone = (d.cc || '+91') + ' ' + d.phone; }
     const id = PL.store.id('u'), now = new Date().toISOString();
     const u = { id, name: d.name, email: d.email, role, status: 'Pending Verification', verified: false, pw: PL.hashPw(d.password), phone: d.phone, location: '', createdAt: now, photo: '' };
     if (role === 'candidate') {
@@ -114,27 +129,58 @@
   PL.router.add('/verify-account', ctx => {
     const u = PL.q.user(ctx.query.u);
     if (!u) return `<div class="auth-wrap"><div class="card auth-card">${ui().empty('mail', 'No account to verify', 'Register first or sign in.', '<a class="btn" href="#/register">Register</a>')}</div></div>`;
-    if (ctx.query.done || u.verified) return `<div class="auth-wrap"><div class="card auth-card center" style="text-align:center"><span class="badge b-green">${ui().icon('check', 14)} Verified</span><h1 style="font-size:1.5rem;margin-top:10px">Email verified</h1><p class="muted">${PL.esc(u.email)} is now verified (simulated). You are signed in.</p><a class="btn btn-lg" href="#${PL.onboardingOnly() ? PL.auth.homeFor(u) : '/registration-complete?u=' + u.id}">Continue</a></div></div>`;
-    const both = PL.onboardingOnly() && u.role === 'candidate';
-    if (both && u.verified) { PL.go('/onboarding'); return ''; }
-    if (both) return PL.onb.shell(1, `<div class="onb-head"><h2>Verify your mobile &amp; email</h2><p class="muted">We "sent" a 6-digit code to <b>${PL.esc(u.email)}</b> and an OTP to <b>${PL.esc(u.phone || 'your mobile')}</b>.</p></div>${ui().notice('<b>Simulation only:</b> nothing is really sent. Use the demo code <b>123456</b> for both.', 'warn')}<form data-form="verify" data-u="${u.id}" novalidate class="mt"><div class="form-grid">${ui().field({ name: 'code', label: 'Email verification code', required: true, placeholder: '123456', attrs: 'inputmode="numeric" maxlength="6"' })}${ui().field({ name: 'otp', label: 'Mobile OTP', required: true, placeholder: '123456', attrs: 'inputmode="numeric" maxlength="6"' })}</div><button class="btn btn-lg btn-block mt" type="submit">Verify &amp; continue</button></form><div class="row between mt"><button class="link-btn" data-action="resend-code">Resend codes (simulated)</button>    <a href="#/login">Back to sign in</a></div>`);
+    if (ctx.query.done || u.verified) return `<div class="auth-wrap"><div class="card auth-card center" style="text-align:center"><span class="badge b-green">${ui().icon('check', 14)} Verified</span><h1 style="font-size:1.5rem;margin-top:10px">Email verified</h1><p class="muted">${PL.esc(u.email)} is now verified (simulated). You are signed in.</p><a class="btn btn-lg" href="#${PL.onboardingOnly() && (u.role === 'candidate' || u.role === 'recruiter') ? PL.auth.homeFor(u) : '/registration-complete?u=' + u.id}">Continue</a></div></div>`;
+    const both = PL.onboardingOnly() && (u.role === 'candidate' || u.role === 'recruiter'), kind = u.role === 'recruiter' ? 'e' : 'c';
+    if (both && u.verified) { PL.go(PL.auth.homeFor(u)); return ''; }
+    if (both) {
+      const boxes = n => `<div class="otp-row" data-otp="${n}">${[0, 1, 2, 3, 4, 5].map(i => `<input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="${n} digit ${i + 1}">`).join('')}</div><input type="hidden" name="${n === 'mobile' ? 'otp' : 'code'}">`;
+      const card = (n, ic, t, val) => `<div class="vcard"><div class="vcard-h"><span class="vic">${ui().icon(ic, 18)}</span><div class="grow"><b>${t}</b><div class="small muted">${PL.esc(val)}</div></div><a class="link-btn" href="#/register?role=${u.role}">Edit</a></div>${boxes(n)}<div class="small muted vcard-f">Resend in <b class="otp-timer">00:25</b></div></div>`;
+      return {
+        html: PL.onb.shell(1, `<div class="onb-head"><h2>Verify your mobile &amp; email</h2><p class="muted">Enter the 6-digit codes we sent you.</p></div><form data-form="verify" data-u="${u.id}" novalidate>${card('mobile', 'phone', 'Mobile Number', u.phone || 'your mobile')}${card('email', 'mail', 'Email Address', u.email)}<p class="xs muted" style="text-align:center;margin:10px 0">Demo only – nothing is sent. Use code <b>123456</b> for both.</p><button class="btn btn-lg btn-block" type="submit">Verify &amp; Continue</button></form><p style="text-align:center;margin-top:10px"><a class="link-btn" href="#/register?role=${u.role}">← Back</a></p>`, false, kind),
+        after: () => { PL.otpInit && PL.otpInit(); }
+      };
+    }
     return `<div class="auth-wrap"><div class="card auth-card"><h1 style="font-size:1.5rem">Verify your email</h1><p class="muted">We "sent" a 6-digit code to <b>${PL.esc(u.email)}</b>.</p>${ui().notice('<b>Simulation only:</b> no real email or OTP is sent. Use the demo code <b>123456</b>.', 'warn')}<form data-form="verify" data-u="${u.id}" novalidate class="mt">${ui().field({ name: 'code', label: 'Verification code', required: true, placeholder: '123456', attrs: 'inputmode="numeric" maxlength="6"' })}<button class="btn btn-block" type="submit">Verify email</button></form><div class="row between mt"><button class="link-btn" data-action="resend-code">Resend code (simulated)</button><a href="#/login">Back to sign in</a></div></div></div>`;
   }, { layout: 'auth', title: 'Verify account' });
   PL.act('resend-code', () => ui().toast('A new demo code was "sent". It is still 123456.', 'info'));
+  PL.act('social-login', d => ui().toast(d.n + ' sign-in is not available in this demo. Please use the form.', 'info'));
+  let otpTimer;
+  PL.otpInit = () => {
+    const rows = [...document.querySelectorAll('.otp-row')]; if (!rows.length) return;
+    const sync = r => { r.nextElementSibling.value = [...r.querySelectorAll('.otp-box')].map(b => b.value).join(''); };
+    rows.forEach(r => {
+      const bx = [...r.querySelectorAll('.otp-box')];
+      bx.forEach((b, i) => {
+        b.addEventListener('input', () => { b.value = b.value.replace(/\D/g, '').slice(-1); if (b.value && bx[i + 1]) bx[i + 1].focus(); sync(r); });
+        b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && bx[i - 1]) bx[i - 1].focus(); });
+        b.addEventListener('paste', e => { const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!t) return; e.preventDefault(); bx.forEach((x, k) => x.value = t[k] || ''); sync(r); (bx[Math.min(t.length, 5)]).focus(); });
+      });
+    });
+    let s = 25; clearInterval(otpTimer);
+    otpTimer = setInterval(() => {
+      const els = document.querySelectorAll('.otp-timer'); if (!els.length) { clearInterval(otpTimer); return; }
+      s = Math.max(0, s - 1); els.forEach(e => e.textContent = '00:' + String(s).padStart(2, '0'));
+      if (!s) clearInterval(otpTimer);
+    }, 1000);
+    rows[0].querySelector('.otp-box').focus();
+  };
   PL.form('verify', f => {
-    if (!ui().validate(f)) return; const d = ui().formData(f);
-    if (d.code !== '123456') { ui().setError(f, 'code', 'Incorrect code. Use 123456 for this demo.'); return; }
-    const hasOtp = !!f.querySelector('[name=otp]');
-    if (hasOtp && d.otp !== '123456') { ui().setError(f, 'otp', 'Incorrect OTP. Use 123456 for this demo.'); return; }
+    const d = ui().formData(f), hasOtp = !!f.querySelector('[name=otp]');
+    if (hasOtp) {
+      if (d.otp !== '123456' || d.code !== '123456') { ui().toast(!d.otp || !d.code ? 'Enter both 6-digit codes.' : 'Incorrect code. Use 123456 for this demo.', 'err'); return; }
+    } else {
+      if (!ui().validate(f)) return;
+      if (d.code !== '123456') { ui().setError(f, 'code', 'Incorrect code. Use 123456 for this demo.'); return; }
+    }
     const u = PL.q.user(f.dataset.u); u.verified = true; u.status = 'Active';
-    if (hasOtp) { PL.store.save(); PL.auth.setSession(u.id, false); ui().toast('Mobile and email verified'); PL.go('/onboarding'); return; }
+    if (hasOtp) { PL.store.save(); if (u.role === 'recruiter') { const co = PL.q.companyOf(u); if (co) co.verification = 'Verified'; } PL.store.save(); PL.auth.setSession(u.id, false); ui().toast('Mobile and email verified'); PL.go(PL.auth.homeFor(u)); return; }
     if (u.role === 'recruiter') db().users.filter(x => x.role === 'admin').forEach(a => PL.notify(a.id, 'verification', 'Employer verification pending', `${u.profile.company} registered and awaits review.`, '/admin/companies'));
     PL.store.save(); PL.auth.setSession(u.id, false); PL.go('/verify-account?u=' + u.id + '&done=1');
   });
   PL.router.add('/registration-complete', ctx => {
     const u = PL.q.user(ctx.query.u) || PL.auth.user(); if (!u) return `<div class="auth-wrap"><div class="card auth-card">${ui().empty('user', 'Nothing to show', '', '<a class="btn" href="#/login">Sign in</a>')}</div></div>`;
     const steps = { candidate: ['Complete your profile and add skills', 'Upload your resume', 'Browse jobs and apply', 'Connect with professionals'], recruiter: ['Complete your company profile', 'Your company enters admin verification (demo queue)', 'Post your first job – it goes to moderation', 'Review applicants'], advertiser: ['Create your first campaign', 'Submit it for admin approval', 'Track simulated analytics'] }[u.role];
-    return `<div class="auth-wrap"><div class="card auth-card center" style="text-align:center"><span class="badge b-teal">${ui().icon('award', 14)} Registration complete</span><h1 style="font-size:1.6rem;margin-top:10px">You are all set, ${PL.esc(u.name.split(' ')[0])}!</h1><p class="muted">Your ${PL.auth.roleLabel(u.role)} account is ready.</p><ul class="stack-sm" style="text-align:left;list-style:none;padding:0">${steps.map(s => `<li class="row nowrap" style="gap:8px">${ui().icon('checkc', 18, 'verified')} ${s}</li>`).join('')}</ul><a class="btn btn-lg btn-block mt" href="#${PL.auth.homeFor(u)}">Go to my dashboard</a></div></div>`;
+    return `<div class="auth-wrap"><div class="card auth-card center" style="text-align:center"><span class="badge b-teal">${ui().icon('award', 14)} Registration complete</span><h1 style="font-size:1.6rem;margin-top:10px">You are all set, ${PL.esc(u.name.split(' ')[0])}!</h1><p class="muted">Your ${PL.auth.roleLabel(u.role)} account is ready.</p><ul class="stack-sm" style="text-align:left;list-style:none;padding:0">${steps.map(s => `<li class="row nowrap" style="gap:8px">${ui().icon('checkc', 18, 'verified')} ${s}</li>`).join('')}</ul>${PL.onboardingOnly() ? ui().notice('<b>Coming soon:</b> the full employer experience (job posting, applicants, company page) is being prepared and will be enabled in the next release.', '') + '<button class="btn btn-secondary btn-block mt" data-action="logout">Sign out</button>' : `<a class="btn btn-lg btn-block mt" href="#${PL.auth.homeFor(u)}">Go to my dashboard</a>`}</div></div>`;
   }, { layout: 'auth', title: 'Welcome' });
 
   /* ---- forgot / reset ---- */

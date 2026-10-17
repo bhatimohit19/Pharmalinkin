@@ -4,8 +4,8 @@ A multi-screen, clickable prototype of a pharma professional network and recruit
 
 > **Prototype only.** All people, companies, jobs and ads are fictional. Data lives in your browser's LocalStorage, which is **not** a secure database. Passwords are fake demo values and weakly hashed. Payments, email and file uploads are simulated.
 
-## Phase 1 – Candidate onboarding only
-`js/config.js` sets `phase: 'onboarding'`. Only these screens are reachable: landing, register (candidate), verify, onboarding (5 steps with progress bar), onboarding summary, login, forgot/reset password, info pages. Every other route redirects to `/`. All other modules stay in the code; set `phase: 'full'` in `js/config.js` to re-enable everything.
+## Phase 1 – Candidate onboarding + Employer workspace
+`js/config.js` sets `phase: 'onboarding'`. Reachable screens: landing, account-type chooser, candidate onboarding (7 steps matching the client's screens: Account → Verify → Details → Education → Experience → More about you → AI resume → Template → Resume ready), employer onboarding (create account → verify → company profile → hiring needs), employer workspace (dashboard, company profile, jobs with Publish now / Schedule / Draft, applicants, interviews), login, forgot/reset password, info pages. Every other route redirects to `/`. Company verification is auto-approved and plans/subscriptions are hidden in this phase. Scheduled jobs go live automatically when their time passes (checked on dashboard/jobs load – demo stand-in for a server scheduler). Set `phase: 'full'` in `js/config.js` to re-enable everything.
 
 ## Deploy on GitHub Pages
 1. Put the folder contents (with `index.html` at the repo root and the `.nojekyll` file) in the repo.

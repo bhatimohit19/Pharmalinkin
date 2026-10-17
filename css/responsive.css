@@ -77,3 +77,15 @@
   .site-footer .row.between{flex-direction:column;align-items:flex-start}
 }
 @media (max-width:420px){.stepper-meta{flex-direction:column;gap:2px}.hero .row .btn{width:100%}}
+
+@media(max-width:640px){.pub-opts{grid-template-columns:1fr}.pub-when{max-width:none}}
+@media(max-width:640px){.step-bar{display:grid;grid-template-columns:repeat(2,1fr);overflow:visible}.dash-body{min-width:0}}
+@media (max-width:640px){
+.onb2{padding:12px 10px 32px}.onb2-card{padding:18px 16px 22px;border-radius:14px}
+ol.onb2-steps .lbl{font-size:.6rem}ol.onb2-steps li:not(:last-child):after{left:calc(50% + 12px);right:calc(-50% + 12px)}
+.rc-grid{grid-template-columns:1fr 1fr}.rc-grid label:last-child:nth-child(odd){grid-column:1/-1}
+.tpl2-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.land-cards{grid-template-columns:1fr}.land-feats{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.done-grid{grid-template-columns:1fr}.r-row{flex-direction:column;gap:0}
+.otp-row{gap:5px}.otp-box{height:44px}.rcard-head{flex-wrap:wrap}
+}

@@ -2,7 +2,7 @@
 (function () {
   const PL = (window.PL = window.PL || {});
   const ui = () => PL.ui, db = () => PL.store.s, I = (n, s) => PL.ui.icon(n, s), E = s => PL.esc(s);
-  const BANNER = '<div class="banner" role="note">Preview of the candidate onboarding – demo prototype. Details you enter stay in your browser only.</div>';
+  const BANNER = '<div class="banner" role="note">Preview of the PharmaLinkIn onboarding – demo prototype. Details you enter stay in your browser only.</div>';
 
   function active(path, items) { let best = null; items.forEach(i => { if ((path === i[1] || path.startsWith(i[1] + '/')) && (!best || i[1].length > best[1].length)) best = i; }); return best; }
   const brand = (href = '/') => `<a href="#${href}" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span><span>Pharma<b>LinkIn</b></span></a>`;
@@ -18,7 +18,7 @@
     const links = PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
     const act = active(ctx.path, links);
     return `${BANNER}<header class="site-header"><div class="container inner">${brand()}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
-      <div class="row auth-btns" style="margin-left:auto">${u ? `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>${profileMenu(u)}` : `<a class="btn btn-ghost btn-sm" href="#/login">Log in</a><a class="btn btn-sm" href="#/register">Join now</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
+      <div class="row auth-btns" style="margin-left:auto">${u ? `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
       <main id="main" tabindex="-1">${html}</main>${footer()}`;
   }
   function footer() {
@@ -47,7 +47,7 @@
   }
 
   const NAVS = {
-    employer: () => [['Dashboard', '/employer/dashboard', 'dash'], ['Company profile', '/employer/company', 'building'], ['Jobs', '/employer/jobs', 'briefcase'], ['Post a job', '/employer/jobs/new', 'plus'], ['Applicants', '/employer/applicants', 'users'], ['Candidates', '/employer/candidates', 'search'], ['Interviews', '/employer/interviews', 'calendar'], ['Messages', '/employer/messages', 'message', 'm'], ['Notifications', '/employer/notifications', 'bell', 'n'], ['Subscription', '/employer/subscription', 'card'], ['Network feed', '/app/feed', 'news'], ['Browse jobs', '/jobs', 'globe']],
+    employer: () => PL.onboardingOnly() ? [['Dashboard', '/employer/dashboard', 'dash'], ['Company profile', '/employer/company', 'building'], ['Jobs', '/employer/jobs', 'briefcase'], ['Post a job', '/employer/jobs/new', 'plus'], ['Applicants', '/employer/applicants', 'users'], ['Interviews', '/employer/interviews', 'calendar']] : [['Dashboard', '/employer/dashboard', 'dash'], ['Company profile', '/employer/company', 'building'], ['Jobs', '/employer/jobs', 'briefcase'], ['Post a job', '/employer/jobs/new', 'plus'], ['Applicants', '/employer/applicants', 'users'], ['Candidates', '/employer/candidates', 'search'], ['Interviews', '/employer/interviews', 'calendar'], ['Messages', '/employer/messages', 'message', 'm'], ['Notifications', '/employer/notifications', 'bell', 'n'], ['Subscription', '/employer/subscription', 'card'], ['Network feed', '/app/feed', 'news'], ['Browse jobs', '/jobs', 'globe']],
     advertiser: () => [['Dashboard', '/advertiser/dashboard', 'dash'], ['Campaigns', '/advertiser/campaigns', 'megaphone'], ['Create campaign', '/advertiser/campaigns/new', 'plus'], ['Analytics', '/advertiser/analytics', 'chart'], ['Notifications', '/advertiser/notifications', 'bell', 'n'], ['Public site', '/', 'globe']],
     admin: () => { const d = db(); return [['Dashboard', '/admin/dashboard', 'dash'], ['Users', '/admin/users', 'users'], ['Employers', '/admin/companies', 'building', d.companies.filter(c => c.verification === 'Pending').length], ['Jobs', '/admin/jobs', 'briefcase', d.jobs.filter(j => j.status === 'Pending Approval').length], ['Moderation', '/admin/moderation', 'flag', d.reports.filter(r => r.status === 'Open').length], ['Advertisements', '/admin/advertisements', 'megaphone', d.campaigns.filter(c => c.status === 'Pending Approval').length], ['Subscriptions', '/admin/subscriptions', 'card'], ['Reports', '/admin/reports', 'chart'], ['Settings', '/admin/settings', 'settings'], ['Audit logs', '/admin/audit-logs', 'list'], ['Notifications', '/admin/notifications', 'bell', 'n']]; }
   };
@@ -58,7 +58,7 @@
     const title = { employer: 'Employer workspace', advertiser: 'Advertiser workspace', admin: 'Super Admin console' }[L];
     return `${BANNER}<div class="dash"><aside class="sidebar" id="sidebar" aria-label="${title}"><div class="row between nowrap" style="padding:4px 8px 10px">${brand(PL.auth.homeFor(u))}<button class="icon-btn dash-toggle" data-action="sidebar-toggle" aria-label="Close menu">${I('x')}</button></div><div class="side-label">${title}</div>${items.map(link).join('')}<div style="flex:1"></div>${L === 'admin' ? '<div class="small" style="color:#94A3B8;padding:10px">Admin console – prototype. Role separation is a UI demo, not real security.</div>' : ''}</aside><div class="scrim" id="scrim" data-action="sidebar-toggle"></div>
       <div><header class="dash-top"><button class="icon-btn dash-toggle" data-action="sidebar-toggle" aria-label="Open menu" aria-controls="sidebar">${I('menu')}</button><span class="badge ${L === 'admin' ? 'b-purple' : 'b-blue'}">${title}</span><div style="flex:1"></div>
-        ${L === 'employer' ? `<a class="icon-btn" href="#/employer/messages" aria-label="Messages">${I('message')}${counts.m ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.m}</span>` : ''}</a>` : ''}<a class="icon-btn" href="#/${L}/notifications" aria-label="Notifications">${I('bell')}${counts.n ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.n}</span>` : ''}</a>${profileMenu(u)}</header>
+        ${L === 'employer' && !PL.onboardingOnly() ? `<a class="icon-btn" href="#/employer/messages" aria-label="Messages">${I('message')}${counts.m ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.m}</span>` : ''}</a>` : ''}${PL.onboardingOnly() ? '' : `<a class="icon-btn" href="#/${L}/notifications" aria-label="Notifications">${I('bell')}${counts.n ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.n}</span>` : ''}</a>`}${profileMenu(u)}</header>
         <main id="main" tabindex="-1" class="dash-body">${html}</main></div></div>`;
   }
   PL.layout = {

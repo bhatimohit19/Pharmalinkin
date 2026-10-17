@@ -10,22 +10,35 @@
   const R = { layout: 'employer', roles: ['recruiter'] };
   const reg = (p, h, title) => PL.router.add(p, h, Object.assign({ title }, R));
   const company = u => PL.q.companyOf(u);
+  const PH = () => PL.onboardingOnly();
+  const localDT = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+  const pubFmt = v => v ? new Date(v).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  // demo stand-in for a server scheduler: go live when the publish time has passed
+  function releaseScheduled() {
+    const now = Date.now(); let n = 0;
+    db().jobs.forEach(j => { if (j.status === 'Scheduled' && j.publishAt && new Date(j.publishAt).getTime() <= now) { j.status = 'Published'; j.publishedAt = j.publishAt; n++; } });
+    if (n) PL.store.save();
+  }
 
   /* ---------- dashboard ---------- */
   reg('/employer/dashboard', (ctx, u) => {
+    releaseScheduled();
     const co = company(u), jobs = PL.q.myJobs(u.id), apps = PL.q.myApps(u.id), us = PL.q.usage(u.id);
     const by = s => apps.filter(a => a.status === s).length, pend = jobs.filter(j => j.status === 'Pending Approval').length;
     const upcoming = apps.filter(a => a.interview && a.interview.status !== 'Cancelled' && a.interview.date >= F().today()).sort((a, b) => a.interview.date.localeCompare(b.interview.date)).slice(0, 4);
     const recent = apps.slice().sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)).slice(0, 5);
     const banners = [];
     if (co && co.verification !== 'Verified') banners.push(ui().notice(`Company verification is <b>${E(co.verification)}</b>. Some features may be limited until an admin verifies it.`, 'warn'));
-    if (pend) banners.push(ui().notice(`${pend} job${pend > 1 ? 's are' : ' is'} awaiting admin approval.`, ''));
+    if (PH() && co && co.verification === 'Verified') banners.push(ui().notice(`${I('check', 14)} <b>${E(co.name)}</b> is verified. You can post jobs now or schedule them for later.`, 'ok'));
+    const sched = jobs.filter(j => j.status === 'Scheduled').sort((a, b) => a.publishAt.localeCompare(b.publishAt));
+    if (pend && !PH()) banners.push(ui().notice(`${pend} job${pend > 1 ? 's are' : ' is'} awaiting admin approval.`, ''));
     if (us.sub && us.sub.status !== 'Active') banners.push(ui().notice('Your subscription has expired. Renew to keep publishing jobs.', 'err'));
     return `${ui().pageHead('Employer dashboard', `<a class="btn" href="#/employer/jobs/new">${I('plus', 16)} Post a job</a>`, co ? co.name : '')}${banners.join('')}
-      <div class="grid g4 mb">${ui().kpi('Active jobs', jobs.filter(j => j.status === 'Published').length, us.jobs + ' / ' + us.plan.limits.jobs + ' plan slots', 'briefcase', '', '/employer/jobs')}${ui().kpi('Applications', apps.length, by('Applied') + ' new', 'file', 'teal', '/employer/applicants')}${ui().kpi('Shortlisted', by('Shortlisted'), 'In interview ' + by('Interview Scheduled'), 'user', 'amber', '/employer/applicants')}${ui().kpi('Job views', jobs.reduce((s, j) => s + j.views, 0), 'Across all jobs', 'eye', '')}</div>
+      <div class="grid g4 mb">${ui().kpi('Active jobs', jobs.filter(j => j.status === 'Published').length, PH() ? sched.length + ' scheduled' : us.jobs + ' / ' + us.plan.limits.jobs + ' plan slots', 'briefcase', '', '/employer/jobs')}${ui().kpi('Applications', apps.length, by('Applied') + ' new', 'file', 'teal', '/employer/applicants')}${ui().kpi('Shortlisted', by('Shortlisted'), 'In interview ' + by('Interview Scheduled'), 'user', 'amber', '/employer/applicants')}${ui().kpi('Job views', jobs.reduce((s, j) => s + j.views, 0), 'Across all jobs', 'eye', '')}</div>
       <div class="grid g2"><div class="card pad"><div class="card-head"><h3>Recent applicants</h3><a href="#/employer/applicants">View all</a></div>${recent.map(a => { const c = PL.q.user(a.candidateId), j = PL.q.job(a.jobId); return `<div class="person-row">${ui().avatar(c, 38)}<div class="grow"><a class="bold small" href="#/employer/applicants/${a.id}">${E(c.name)}</a><div class="xs muted">${E(j.title)} · ${F().ago(a.appliedAt)}</div></div>${ui().badge(a.status)}</div>`; }).join('') || '<p class="muted small">No applications yet.</p>'}</div>
       <div class="card pad"><div class="card-head"><h3>Upcoming interviews</h3><a href="#/employer/interviews">Calendar</a></div>${upcoming.map(a => `<div class="person-row"><div class="grow"><a class="bold small" href="#/employer/applicants/${a.id}">${E(PL.q.user(a.candidateId).name)}</a><div class="xs muted">${E(PL.q.job(a.jobId).title)}</div></div><span class="small">${F().date(a.interview.date)} ${E(a.interview.time)}</span></div>`).join('') || '<p class="muted small">None scheduled.</p>'}</div></div>
-      <div class="card pad mt"><h3>Plan usage — ${E(us.plan.name)}</h3><div class="grid g3"><div>${ui().progress(us.jobs, us.plan.limits.jobs, 'Active jobs')}</div><div>${ui().progress(us.featured, us.plan.limits.featured, 'Featured jobs')}</div><div>${ui().progress(us.resumes, us.plan.limits.resumes, 'Contact unlocks')}</div></div></div>`;
+      ${sched.length ? `<div class="card pad mt"><div class="card-head"><h3>Scheduled jobs</h3><a href="#/employer/jobs">Manage</a></div>${sched.slice(0, 4).map(j => `<div class="person-row"><div class="grow"><a class="bold small" href="#/employer/jobs/${j.id}/edit">${E(j.title)}</a><div class="xs muted">${E(j.location)}</div></div><span class="small">${I('calendar', 14)} Goes live ${pubFmt(j.publishAt)}</span></div>`).join('')}</div>` : ''}
+      ${PH() ? '' : `<div class="card pad mt"><h3>Plan usage — ${E(us.plan.name)}</h3><div class="grid g3"><div>${ui().progress(us.jobs, us.plan.limits.jobs, 'Active jobs')}</div><div>${ui().progress(us.featured, us.plan.limits.featured, 'Featured jobs')}</div><div>${ui().progress(us.resumes, us.plan.limits.resumes, 'Contact unlocks')}</div></div></div>`}`;
   }, 'Employer dashboard');
 
   /* ---------- company ---------- */
@@ -46,16 +59,17 @@
 
   /* ---------- manage jobs ---------- */
   reg('/employer/jobs', (ctx, u) => {
-    const v = PL.vf('ejobs', { tab: 'All', page: 1 }), all = PL.q.myJobs(u.id);
-    const tabs = ['All', 'Published', 'Pending Approval', 'Draft', 'Paused', 'Closed', 'Rejected', 'Expired'];
+    releaseScheduled(); const v = PL.vf('ejobs', { tab: 'All', page: 1 }), all = PL.q.myJobs(u.id);
+    const tabs = ['All', 'Published', 'Scheduled', 'Pending Approval', 'Draft', 'Paused', 'Closed', 'Rejected', 'Expired'];
     const list = all.filter(j => v.tab === 'All' || j.status === v.tab).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), pg = ui().paginate(list, v.page, 10);
     return `${ui().pageHead('Manage jobs', `<a class="btn" href="#/employer/jobs/new">${I('plus', 16)} Post a job</a>`)}${ui().tabs(tabs, v.tab, 'ejobs')}
-      ${ui().table({ cols: [{ label: 'Job', render: j => `<a class="bold" href="#/employer/jobs/${j.id}/edit">${E(j.title)}</a><div class="xs muted">${E(j.location)} · ${E(j.type)}</div>` }, { label: 'Status', render: j => ui().badge(j.status) + (j.status === 'Rejected' && j.rejectionReason ? `<div class="xs muted">${E(j.rejectionReason)}</div>` : '') }, { label: 'Applicants', render: j => `<a href="#/employer/applicants?job=${j.id}">${PL.q.myApps(u.id).filter(a => a.jobId === j.id).length}</a>` }, { label: 'Views', render: j => j.views }, { label: 'Closes', render: j => F().date(j.closingDate) },
-        { label: '', render: j => ui().menu([{ label: 'Edit', href: '/employer/jobs/' + j.id + '/edit', icon: 'edit' }, { label: 'Preview', href: '/jobs/' + j.id, icon: 'eye' }, { label: 'Duplicate', action: 'job-dup', data: { id: j.id }, icon: 'copy' }].concat(j.status === 'Published' ? [{ label: 'Pause', action: 'job-status', data: { id: j.id, s: 'Paused' }, icon: 'pause' }] : []).concat(j.status === 'Paused' || j.status === 'Draft' ? [{ label: j.status === 'Draft' ? 'Submit' : 'Resume', action: 'job-status', data: { id: j.id, s: 'Published' }, icon: 'play' }] : []).concat(['Published', 'Paused'].includes(j.status) ? [{ label: 'Close job', action: 'job-status', data: { id: j.id, s: 'Closed' }, icon: 'x' }] : []).concat([{ label: 'Delete', action: 'job-del', data: { id: j.id }, icon: 'trash', danger: true }]), { label: 'Job actions', align: 'right' }) }], rows: pg.items, empty: 'No jobs in this status.' })}${ui().pager({ total: list.length, page: pg.page, per: 10, scope: 'ejobs' })}`;
+      ${ui().table({ cols: [{ label: 'Job', render: j => `<a class="bold" href="#/employer/jobs/${j.id}/edit">${E(j.title)}</a><div class="xs muted">${E(j.location)} · ${E(j.type)}</div>` }, { label: 'Status', render: j => ui().badge(j.status) + (j.status === 'Scheduled' ? `<div class="xs muted">${pubFmt(j.publishAt)}</div>` : '') + (j.status === 'Rejected' && j.rejectionReason ? `<div class="xs muted">${E(j.rejectionReason)}</div>` : '') }, { label: 'Applicants', render: j => `<a href="#/employer/applicants?job=${j.id}">${PL.q.myApps(u.id).filter(a => a.jobId === j.id).length}</a>` }, { label: 'Views', render: j => j.views }, { label: 'Closes', render: j => F().date(j.closingDate) },
+        { label: '', render: j => ui().menu([{ label: 'Edit', href: '/employer/jobs/' + j.id + '/edit', icon: 'edit' }, ...(PH() ? [] : [{ label: 'Preview', href: '/jobs/' + j.id, icon: 'eye' }]), { label: 'Duplicate', action: 'job-dup', data: { id: j.id }, icon: 'copy' }].concat(j.status === 'Published' ? [{ label: 'Pause', action: 'job-status', data: { id: j.id, s: 'Paused' }, icon: 'pause' }] : []).concat(['Paused', 'Draft', 'Scheduled'].includes(j.status) ? [{ label: j.status === 'Paused' ? 'Resume' : 'Publish now', action: 'job-status', data: { id: j.id, s: 'Published' }, icon: 'play' }] : []).concat(['Published', 'Paused'].includes(j.status) ? [{ label: 'Close job', action: 'job-status', data: { id: j.id, s: 'Closed' }, icon: 'x' }] : []).concat([{ label: 'Delete', action: 'job-del', data: { id: j.id }, icon: 'trash', danger: true }]), { label: 'Job actions', align: 'right' }) }], rows: pg.items, empty: 'No jobs in this status.' })}${ui().pager({ total: list.length, page: pg.page, per: 10, scope: 'ejobs' })}`;
   }, 'Manage jobs');
 
   function publishCheck(u, j) {
     const us = PL.q.usage(u.id), co = company(u);
+    if (PH()) return '';
     if (us.sub && us.sub.status !== 'Active') return 'Your subscription is not active. Renew it to publish jobs.';
     if (j.status !== 'Published' && j.status !== 'Pending Approval' && us.jobs >= us.plan.limits.jobs) return `Your ${us.plan.name} plan allows ${us.plan.limits.jobs} active job(s). Upgrade to post more.`;
     if (j.featured && us.featured >= us.plan.limits.featured && !j.wasFeatured) return 'Featured job limit reached for your plan.';
@@ -64,7 +78,7 @@
   }
   function submitJob(u, j) {
     const err = publishCheck(u, j); if (err) { ui().toast(err, 'err'); return false; }
-    j.status = db().settings.moderation ? 'Pending Approval' : 'Published';
+    j.status = db().settings.moderation && !PH() ? 'Pending Approval' : 'Published';
     if (j.status === 'Pending Approval') db().users.filter(x => x.role === 'admin').forEach(a => PL.notify(a.id, 'moderation', 'Job awaiting approval', j.title + ' was submitted.', '/admin/jobs'));
     return true;
   }
@@ -96,9 +110,12 @@
     if (s === 4) body = f('questions', 'Screening questions (one per line)', { type: 'textarea', rows: 4, full: true, value: (d.questions || []).join('\n'), help: 'Candidates answer these when applying.' }) + `<div class="field full"><label class="check"><input type="checkbox" name="featured" ${d.featured ? 'checked' : ''}> Feature this job (uses a featured slot)</label></div>`;
     if (s === 5) {
       const err = publishCheck(u, d);
-      body = `<div class="full">${ui().notice(db().settings.moderation ? 'Moderation is on: your job will be reviewed by an admin before going live.' : 'Moderation is off: your job will go live immediately.', '')}${err ? ui().notice(E(err), 'err') : ''}<h3>${E(d.title)}</h3><p class="muted">${E(d.city)}, ${E(d.state)} · ${E(d.type)} · ${E(d.workMode)} · ${E(d.qualification)} · ${d.expMin}-${d.expMax} yrs</p><p>${E(d.description)}</p><p class="small"><b>Skills:</b> ${E((d.skills || []).join(', '))}</p><p class="small"><b>Closes:</b> ${F().date(d.closingDate)}</p></div>`;
+      const mode = d.publishMode || 'now', pa = d.publishAt || localDT(new Date(Date.now() + 864e5));
+      const opt = (v, t, s) => `<label class="pub-opt ${mode === v ? 'on' : ''}"><input type="radio" name="publishMode" value="${v}" ${mode === v ? 'checked' : ''}><span><b>${t}</b><span class="xs muted">${s}</span></span></label>`;
+      const sched = PH() ? `<div class="full"><h4 style="margin:6px 0">When should it go live?</h4><div class="pub-opts">${opt('now', 'Publish now', 'Visible to candidates immediately')}${opt('schedule', 'Schedule', 'Pick a date and time to go live')}${opt('draft', 'Save as draft', 'Keep it private and finish later')}</div><div class="pub-when" ${mode === 'schedule' ? '' : 'hidden'}><label class="xs muted" for="publishAt">Go live on</label><input type="datetime-local" id="publishAt" name="publishAt" value="${E(pa)}" min="${localDT()}"></div><div class="field-err" id="publishAtErr" role="alert"></div></div>` : '';
+      body = `<div class="full">${PH() ? '' : ui().notice(db().settings.moderation ? 'Moderation is on: your job will be reviewed by an admin before going live.' : 'Moderation is off: your job will go live immediately.', '')}${err ? ui().notice(E(err), 'err') : ''}<h3>${E(d.title)}</h3><p class="muted">${E(d.city)}, ${E(d.state)} · ${E(d.type)} · ${E(d.workMode)} · ${E(d.qualification)} · ${d.expMin}-${d.expMax} yrs</p><p>${E(d.description)}</p><p class="small"><b>Skills:</b> ${E((d.skills || []).join(', '))}</p><p class="small"><b>Closes:</b> ${F().date(d.closingDate)}</p></div>${sched}`;
     }
-    return `${ui().pageHead(editId ? 'Edit job' : 'Post a job')}${bar}<form class="card pad-lg form-grid" data-form="job-step" novalidate>${body}<div class="full row between">${s > 0 ? '<button type="button" class="btn btn-secondary" data-action="job-back">Back</button>' : '<span></span>'}<div class="row"><button type="button" class="btn btn-secondary" data-action="job-draft">Save draft</button>${s < 5 ? '<button class="btn" type="submit">Next</button>' : '<button class="btn" type="submit">Submit job</button>'}</div></div></form>`;
+    return `${ui().pageHead(editId ? 'Edit job' : 'Post a job')}${bar}<form class="card pad-lg form-grid" data-form="job-step" novalidate>${body}<div class="full row between">${s > 0 ? '<button type="button" class="btn btn-secondary" data-action="job-back">Back</button>' : '<span></span>'}<div class="row"><button type="button" class="btn btn-secondary" data-action="job-draft">Save draft</button>${s < 5 ? '<button class="btn" type="submit">Next</button>' : `<button class="btn" type="submit" id="job-submit">${PH() ? ({ schedule: 'Schedule job', draft: 'Save draft' }[d.publishMode] || 'Publish job') : 'Submit job'}</button>`}</div></div></form>`;
   }
   reg('/employer/jobs/new', jobWizard, 'Post a job');
   reg('/employer/jobs/:id/edit', jobWizard, 'Edit job');
@@ -109,7 +126,7 @@
     if (s === 1) { pick('qualification', 'expMin', 'expMax', 'preferred'); d.skills = (x.skills || '').split(',').map(t => t.trim()).filter(Boolean); }
     if (s === 2) { pick('salMin', 'salMax', 'incentives', 'travel'); d.benefits = lines(x.benefits); }
     if (s === 3) { pick('description'); d.responsibilities = lines(x.responsibilities); }
-    if (s === 4) { d.questions = lines(x.questions); d.featured = !!f.featured.checked; }
+    if (s === 4) { d.questions = lines(x.questions); d.featured = !!f.elements.featured.checked; }
     d.location = d.city && d.state ? d.city + ', ' + d.state : d.location; d.locations = [d.location];
   }
   function persist(u, status) {
@@ -123,11 +140,28 @@
   PL.form('job-step', f => {
     const w = PL.state.jw, u = me();
     if (w.step < 5 && !ui().validate(f)) return;
-    if (w.step === 1 && +f.expMax.value < +f.expMin.value) return ui().setError(f, 'expMax', 'Max must be ≥ min');
-    if (w.step === 2 && f.salMax.value && +f.salMax.value < +f.salMin.value) return ui().setError(f, 'salMax', 'Max must be ≥ min');
+    if (w.step === 1 && +f.elements.expMax.value < +f.elements.expMin.value) return ui().setError(f, 'expMax', 'Max must be ≥ min');
+    if (w.step === 2 && f.elements.salMax.value && +f.elements.salMax.value < +f.elements.salMin.value) return ui().setError(f, 'salMax', 'Max must be ≥ min');
     if (w.step < 5) { collect(f); w.step++; PL.rerender(); window.scrollTo(0, 0); return; }
+    if (PH()) {
+      const mode = (f.querySelector('input[name=publishMode]:checked') || {}).value || 'now', w2 = PL.state.jw.d; w2.publishMode = mode;
+      if (mode === 'draft') { persist(u, 'draft'); PL.state.jw = null; ui().toast('Draft saved'); PL.go('/employer/jobs'); return; }
+      if (mode === 'schedule') {
+        const at = f.querySelector('[name=publishAt]').value, err = f.querySelector('#publishAtErr');
+        if (!at || new Date(at).getTime() <= Date.now()) { err.textContent = 'Choose a date and time in the future.'; return; }
+        w2.publishAt = at; const j = persist(u, 'draft'); j.status = 'Scheduled'; j.publishAt = at; PL.store.save();
+        PL.state.jw = null; PL.vf('ejobs').tab = 'Scheduled'; PL.vf('ejobs').page = 1; ui().toast('Job scheduled for ' + pubFmt(at)); PL.go('/employer/jobs'); return;
+      }
+    }
     const j = persist(u, 'submit'); if (!j) return;
     PL.state.jw = null; ui().toast(j.status === 'Pending Approval' ? 'Submitted for admin approval' : 'Job published'); PL.go('/employer/jobs');
+  });
+  document.addEventListener('change', e => {
+    if (!e.target.matches || !e.target.matches('input[name="publishMode"]')) return;
+    const f = e.target.form, m = e.target.value, w = PL.state.jw; if (w) w.d.publishMode = m;
+    f.querySelectorAll('.pub-opt').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+    const when = f.querySelector('.pub-when'); if (when) when.hidden = m !== 'schedule';
+    const b = f.querySelector('#job-submit'); if (b) b.textContent = { schedule: 'Schedule job', draft: 'Save draft' }[m] || 'Publish job';
   });
   PL.act('job-back', () => { const f = document.querySelector('form[data-form="job-step"]'); if (f) collect(f); PL.state.jw.step--; PL.rerender(); });
   PL.act('job-draft', () => { const f = document.querySelector('form[data-form="job-step"]'); if (f && PL.state.jw.step < 5) collect(f); if (!PL.state.jw.d.title) return ui().toast('Add a job title first', 'err'); persist(me(), 'draft'); PL.state.jw = null; ui().toast('Draft saved'); PL.go('/employer/jobs'); });
