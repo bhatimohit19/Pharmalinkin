@@ -2,7 +2,7 @@
 (function () {
   const PL = (window.PL = window.PL || {});
   const ui = () => PL.ui, db = () => PL.store.s, I = (n, s) => PL.ui.icon(n, s), E = s => PL.esc(s);
-  const BANNER = '<div class="banner" role="note">Preview of the PharmaLinkIn onboarding – demo prototype. Details you enter stay in your browser only.</div>';
+  const BANNER = '';
 
   function active(path, items) { let best = null; items.forEach(i => { if ((path === i[1] || path.startsWith(i[1] + '/')) && (!best || i[1].length > best[1].length)) best = i; }); return best; }
   const brand = (href = '/') => `<a href="#${href}" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span><span>Pharma<b>LinkIn</b></span></a>`;

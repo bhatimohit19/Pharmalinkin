@@ -124,3 +124,22 @@ Working source, polished prototype, README (setup, demo logins per role, route/s
 
 ## Status
 - Full prototype built (public, candidate, feed, recruiter, advertiser, admin, messaging). See `README.md` for routes, demo logins and the QA checklist.
+
+## Current Release – Phase 1 (candidate onboarding only)
+- Gate in `js/config.js`; employer side built but disabled (`employerEnabled:false`).
+- Landing (brand carousel, Candidate/Employer cards; "Latest jobs" removed) → Register (3-step bar: Register / Create Resume / Finish) → Verify mobile + email (demo OTP `123456`, "Fill demo code") → 7-step bar: Details (photo, optional resume upload, Fresher/Experienced) → Education → Experience → More about you → AI resume → Template → Ready → Done.
+- Fresher skips the Experience step; Education and Experience have "Skip for now"; end date cannot precede start date.
+- Division/Segment is a fixed dropdown. Each experience card has a CTC field (currency dropdown INR/USD/EUR/GBP/AED/SGD + amount; stored privately, not shown on the resume). The "I currently work here" toggle appears only on the first (current) employer card; "Previous Employer" cards don't have it. Google/LinkedIn buttons are demo-only (toast on click).
+- Progress is saved as a draft and resumed on next login. Mobile-first (16px inputs, 40px+ tap targets).
+- Resume upload stores only the file name (no parsing).
+
+- **Section layout (client obs):** every 'More about you' section follows Title -> input -> suggestions -> added list.
+- **Awards & Certifications** now capture Month + Year (stored as {name, month, year}); shown on resume and summary as 'Name (Mar 2024)'.
+
+- **Download PDF (client obs):** removed from the footer button row; now sits inside the resume section (under the resume preview on the Ready step, and in the Your resume block on the done page). Also shown on the candidate /app/resume page (hidden until the full candidate area is enabled).
+
+- **Forgot Password (client obs):** 4-state page at #/forgot-password (js/forgot.js): Initiate (email/mobile) -> Verify (6-digit OTP, resend timer, demo code 123456) -> Reset (show/hide, strength bar, 4 rules) -> Success -> Go to Login. FAQ & Support links below. Updates the demo password for a matching email/mobile. Old /reset-password link redirects here.
+
+- **Client obs batch (register/details/education):** flag next to country code (inline SVG, changes with selection); Google/LinkedIn brand logos on register buttons; DOB (date picker, required) + auto-calculated read-only Age on Details (stored as profile.dob); Education: 'Degree / Diploma' + Institute, 'Currently Studying' moved to top of the card, red delete icon, '← Back' on step Back button. Experience: current-only toggle + CTC were already done earlier (client tested an old build).
+
+- **Mobile QA pass:** audited all screens at 360 and 390px (no horizontal overflow, no JS errors). Global rule: every input/select/textarea is 16px on mobile (no iOS zoom); .btn-sm min-height 40px; link-buttons and chip x get larger tap areas.

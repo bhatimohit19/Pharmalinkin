@@ -3,6 +3,20 @@
   const PL = (window.PL = window.PL || {});
   const ui = () => PL.ui, db = () => PL.store.s;
   const NEXT_KEY = 'pl_next';
+  const FL = b => `<svg viewBox="0 0 24 16" width="24" height="16" aria-hidden="true">${b}</svg>`;
+  PL.CC = [
+    ['+91', FL('<rect width="24" height="16" fill="#fff"/><rect width="24" height="5.4" fill="#ff9933"/><rect y="10.6" width="24" height="5.4" fill="#138808"/><circle cx="12" cy="8" r="2.2" fill="none" stroke="#000080" stroke-width=".7"/>')],
+    ['+1', FL('<rect width="24" height="16" fill="#fff"/><path d="M0 1h24M0 4.2h24M0 7.4h24M0 10.6h24M0 13.8h24" stroke="#b22234" stroke-width="1.6"/><rect width="10" height="8.6" fill="#3c3b6e"/>')],
+    ['+44', FL('<rect width="24" height="16" fill="#012169"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="3"/><path d="M0 0l24 16M24 0L0 16" stroke="#c8102e" stroke-width="1"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5"/><path d="M12 0v16M0 8h24" stroke="#c8102e" stroke-width="3"/>')],
+    ['+971', FL('<rect width="24" height="16" fill="#fff"/><rect width="24" height="5.4" fill="#00732f"/><rect y="10.6" width="24" height="5.4" fill="#000"/><rect width="6.5" height="16" fill="#ff0000"/>')],
+    ['+65', FL('<rect width="24" height="16" fill="#fff"/><rect width="24" height="8" fill="#ed2939"/><circle cx="5" cy="4" r="2.4" fill="#fff"/><circle cx="6" cy="4" r="2.2" fill="#ed2939"/>')],
+    ['+61', FL('<rect width="24" height="16" fill="#012169"/><circle cx="17" cy="5" r="1" fill="#fff"/><circle cx="19" cy="10" r="1" fill="#fff"/><circle cx="14" cy="11" r="1" fill="#fff"/><circle cx="6" cy="12" r="1.8" fill="#fff"/><rect width="10" height="7" fill="#fff"/><path d="M5 0v7M0 3.5h10" stroke="#c8102e" stroke-width="2"/>')]
+  ];
+  PL.LOGO = {
+    google: '<svg class="brand-ic" viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>',
+    linkedin: '<svg class="brand-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path fill="#fff" d="M5.4 9.4h2.9V18H5.4zM6.85 5.2a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4zM10 9.4h2.8v1.2h.04c.4-.74 1.35-1.5 2.78-1.5 2.97 0 3.52 1.95 3.52 4.5V18h-2.9v-3.8c0-.9 0-2.07-1.26-2.07s-1.46.98-1.46 2V18H10z"/></svg>'
+  };
+  document.addEventListener('change', e => { const t = e.target; if (t && t.matches && t.matches('select[name=cc]')) { const f = document.getElementById('cc-flag'), c = PL.CC.find(x => x[0] === t.value); if (f && c) f.innerHTML = c[1]; } });
   const ROLE_LABEL = { candidate: 'Candidate', recruiter: 'Recruiter / Employer', advertiser: 'Advertiser', admin: 'Super Admin' };
   const safe = fn => { try { return fn(); } catch (e) { return null; } };
 
@@ -60,6 +74,7 @@
     if (!u || u.pw !== PL.hashPw(d.password)) { ui().setError(f, 'password', 'Invalid email or password.'); return; }
     if (u.status === 'Banned') { msg.innerHTML = ui().notice('This account has been banned. Please contact support (demo).', 'err'); return; }
     if (u.status === 'Suspended') { msg.innerHTML = ui().notice('This account is suspended. Please contact support (demo).', 'warn'); return; }
+    if (u.status === 'Pending Verification' && PL.onboardingOnly()) { PL.go('/verify-account?u=' + u.id); return; }
     if (u.status === 'Pending Verification') { msg.innerHTML = ui().notice(`Please verify your email first (simulated). <a href="#/verify-account?u=${u.id}">Open verification</a>`, 'warn'); return; }
     doLogin(u, d.remember);
   });
@@ -84,7 +99,7 @@
   }
   PL.router.add('/register', ctx => {
     const role = ctx.query.role;
-    if (role === 'recruiter' && !PL.employerOn()) { PL.go('/register'); return ''; }
+    if (PL.onboardingOnly() && !(role === 'candidate' || (role === 'recruiter' && PL.employerOn()))) { PL.go('/'); return ''; }
     if (!(PL.onboardingOnly() ? ['candidate', 'recruiter'] : ['candidate', 'recruiter', 'advertiser']).includes(role)) {
       const rc = (r, ic, t, d) => `<a class="role-card" href="#/register?role=${r}" style="display:block;text-decoration:none;color:inherit"><span>${ui().icon(ic, 28)}</span><h3 style="margin-top:8px">${t}</h3><p class="muted small" style="margin:0">${d}</p></a>`;
       return `<div class="auth-wrap"><div class="card auth-card wide"><h1 style="font-size:1.6rem">Create your account</h1><p class="muted">How do you want to use PharmaLinkIn?</p><div class="grid ${PL.onboardingOnly() ? 'g2' : 'g3'} mt">${rc('candidate', 'user', "I\u0027m a Candidate", 'Find jobs, grow your network and track applications.')}${PL.onboardingOnly() ? (PL.employerOn() ? rc('recruiter', 'briefcase', "I'm an Employer", 'Post jobs, manage applicants and discover talent.') : `<div class="role-card" aria-disabled="true" style="opacity:.55;cursor:not-allowed"><span>${ui().icon('briefcase', 28)}</span><h3 style="margin-top:8px">I'm an Employer</h3><p class="muted small" style="margin:0">Coming soon</p></div>`) : rc('recruiter', 'briefcase', "I'm an Employer", 'Post jobs, manage applicants and discover talent.')}${PL.onboardingOnly() ? '' : rc('advertiser', 'megaphone', 'Advertiser', 'Promote hiring drives, webinars, courses and products.')}</div><p class="small mt" style="text-align:center">Already registered? <a href="#/login">Sign in</a></p></div></div>`;
@@ -92,13 +107,13 @@
     const title = { candidate: 'Candidate registration', recruiter: 'Employer registration', advertiser: 'Advertiser registration' }[role];
     if (role === 'candidate' && PL.onboardingOnly()) {
       const F = ui().field, I = ui().icon;
-      const cc = ['+91', '+1', '+44', '+971', '+65', '+61'].map(c => `<option>${c}</option>`).join('');
+      const cc = PL.CC.map(c => `<option value="${c[0]}">${c[0]}</option>`).join('');
       return PL.onb.shell(0, `<div class="onb-head"><h2>Create your account</h2><p class="muted">Let's get started with your basic details.</p></div><form data-form="register" data-role="candidate" novalidate><div class="form-grid">${F({ name: 'first', label: 'First Name', required: true, autocomplete: 'given-name', placeholder: 'Enter first name' })}${F({ name: 'last', label: 'Surname', required: true, autocomplete: 'family-name', placeholder: 'Enter surname' })}
-        <div class="field full"><label>Mobile Number <span class="req">*</span></label><div class="phone-row"><select name="cc" aria-label="Country code">${cc}</select><input name="phone" type="tel" required inputmode="numeric" placeholder="Enter mobile number" autocomplete="tel-national"></div></div>
+        <div class="field full"><label>Mobile Number <span class="req">*</span></label><div class="phone-row"><span class="cc-wrap"><i class="cc-flag" id="cc-flag">${PL.CC[0][1]}</i><select name="cc" aria-label="Country code">${cc}</select></span><input name="phone" type="tel" required inputmode="numeric" placeholder="Enter mobile number" autocomplete="tel-national"></div></div>
         ${F({ name: 'email', label: 'Email', type: 'email', required: true, full: true, autocomplete: 'email', placeholder: 'Enter your email' })}${F({ name: 'password', label: 'Password', type: 'password', required: true, minlength: 8, full: true, autocomplete: 'new-password', placeholder: 'Create a password', help: 'Minimum 8 characters' })}</div>
         <button class="btn btn-lg btn-block mt" type="submit">Continue</button></form>
         <div class="or-sep"><span>or</span></div>
-        <div class="social-row"><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="Google">${I('globe', 16)} Continue with Google</button><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="LinkedIn">${I('link', 16)} Continue with LinkedIn</button></div>
+        <div class="social-row"><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="Google">${PL.LOGO.google} Continue with Google</button><button type="button" class="btn btn-secondary btn-block" data-action="social-login" data-n="LinkedIn">${PL.LOGO.linkedin} Continue with LinkedIn</button></div>
         <p class="xs muted" style="text-align:center;margin-top:14px">By continuing, you agree to our <a href="#/page/terms">Terms of Service</a> and <a href="#/page/privacy">Privacy Policy</a>.</p>
         <p style="text-align:center;margin:6px 0 0"><a class="link-btn" href="#/register">← Back</a> <span class="muted small">· Already registered? <a href="#/login">Sign in</a></span></p>`);
     }
@@ -136,7 +151,7 @@
       const boxes = n => `<div class="otp-row" data-otp="${n}">${[0, 1, 2, 3, 4, 5].map(i => `<input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="${n} digit ${i + 1}">`).join('')}</div><input type="hidden" name="${n === 'mobile' ? 'otp' : 'code'}">`;
       const card = (n, ic, t, val) => `<div class="vcard"><div class="vcard-h"><span class="vic">${ui().icon(ic, 18)}</span><div class="grow"><b>${t}</b><div class="small muted">${PL.esc(val)}</div></div><a class="link-btn" href="#/register?role=${u.role}">Edit</a></div>${boxes(n)}<div class="small muted vcard-f">Resend in <b class="otp-timer">00:25</b></div></div>`;
       return {
-        html: PL.onb.shell(1, `<div class="onb-head"><h2>Verify your mobile &amp; email</h2><p class="muted">Enter the 6-digit codes we sent you.</p></div><form data-form="verify" data-u="${u.id}" novalidate>${card('mobile', 'phone', 'Mobile Number', u.phone || 'your mobile')}${card('email', 'mail', 'Email Address', u.email)}<p class="xs muted" style="text-align:center;margin:10px 0">Demo only – nothing is sent. Use code <b>123456</b> for both.</p><button class="btn btn-lg btn-block" type="submit">Verify &amp; Continue</button></form><p style="text-align:center;margin-top:10px"><a class="link-btn" href="#/register?role=${u.role}">← Back</a></p>`, false, kind),
+        html: PL.onb.shell(1, `<div class="onb-head"><h2>Verify your mobile &amp; email</h2><p class="muted">Enter the 6-digit codes we sent you.</p></div><form data-form="verify" data-u="${u.id}" novalidate>${card('mobile', 'phone', 'Mobile Number', u.phone || 'your mobile')}${card('email', 'mail', 'Email Address', u.email)}<p class="xs muted" style="text-align:center;margin:10px 0">Demo only – nothing is sent. Use code <b>123456</b> for both. <button type="button" class="link-btn" data-action="otp-fill">Fill demo code</button></p><button class="btn btn-lg btn-block" type="submit">Verify &amp; Continue</button></form><p style="text-align:center;margin-top:10px"><a class="link-btn" href="#/register?role=${u.role}">← Back</a></p>`, false, kind),
         after: () => { PL.otpInit && PL.otpInit(); }
       };
     }
@@ -144,6 +159,7 @@
   }, { layout: 'auth', title: 'Verify account' });
   PL.act('resend-code', () => ui().toast('A new demo code was "sent". It is still 123456.', 'info'));
   PL.act('social-login', d => ui().toast(d.n + ' sign-in is not available in this demo. Please use the form.', 'info'));
+  PL.act('otp-fill', () => document.querySelectorAll('.otp-row').forEach(r => { [...r.querySelectorAll('.otp-box')].forEach((b, i) => b.value = '123456'[i]); r.nextElementSibling.value = '123456'; }));
   let otpTimer;
   PL.otpInit = () => {
     const rows = [...document.querySelectorAll('.otp-row')]; if (!rows.length) return;
@@ -183,16 +199,4 @@
     return `<div class="auth-wrap"><div class="card auth-card center" style="text-align:center"><span class="badge b-teal">${ui().icon('award', 14)} Registration complete</span><h1 style="font-size:1.6rem;margin-top:10px">You are all set, ${PL.esc(u.name.split(' ')[0])}!</h1><p class="muted">Your ${PL.auth.roleLabel(u.role)} account is ready.</p><ul class="stack-sm" style="text-align:left;list-style:none;padding:0">${steps.map(s => `<li class="row nowrap" style="gap:8px">${ui().icon('checkc', 18, 'verified')} ${s}</li>`).join('')}</ul>${PL.onboardingOnly() ? ui().notice('<b>Coming soon:</b> the full employer experience (job posting, applicants, company page) is being prepared and will be enabled in the next release.', '') + '<button class="btn btn-secondary btn-block mt" data-action="logout">Sign out</button>' : `<a class="btn btn-lg btn-block mt" href="#${PL.auth.homeFor(u)}">Go to my dashboard</a>`}</div></div>`;
   }, { layout: 'auth', title: 'Welcome' });
 
-  /* ---- forgot / reset ---- */
-  PL.router.add('/forgot-password', ctx => {
-    const sent = ctx.query.sent; const u = sent && db().users.find(x => x.email.toLowerCase() === sent.toLowerCase());
-    return `<div class="auth-wrap"><div class="card auth-card"><h1 style="font-size:1.5rem">Forgot your password?</h1>${sent ? `${ui().notice('If an account exists for <b>' + PL.esc(sent) + '</b>, a reset link has been sent. <b>(Simulation – no email is sent.)</b>', 'ok')}${u ? `<div class="notice warn mt">Demo shortcut: <a href="#/reset-password?email=${encodeURIComponent(sent)}">Open the simulated reset link</a></div>` : ''}<a class="btn btn-secondary btn-block mt" href="#/login">Back to sign in</a>` : `<p class="muted">Enter your email and we will "send" a reset link.</p><form data-form="forgot" novalidate>${ui().field({ name: 'email', label: 'Email address', type: 'email', required: true })}<button class="btn btn-block" type="submit">Send reset link</button></form><p class="small mt" style="text-align:center"><a href="#/login">Back to sign in</a></p>`}</div></div>`;
-  }, { layout: 'auth', title: 'Forgot password', guestOnly: true });
-  PL.form('forgot', f => { if (!ui().validate(f)) return; PL.go('/forgot-password?sent=' + encodeURIComponent(ui().formData(f).email)); });
-  PL.router.add('/reset-password', ctx => {
-    const u = db().users.find(x => x.email.toLowerCase() === String(ctx.query.email || '').toLowerCase());
-    if (!u) return `<div class="auth-wrap"><div class="card auth-card">${ui().empty('lock', 'Reset link invalid', 'This simulated link is not valid.', '<a class="btn" href="#/forgot-password">Request again</a>')}</div></div>`;
-    return `<div class="auth-wrap"><div class="card auth-card"><h1 style="font-size:1.5rem">Reset password</h1><p class="muted">Account: <b>${PL.esc(u.email)}</b></p><form data-form="reset" data-u="${u.id}" novalidate>${ui().field({ name: 'password', label: 'New password', type: 'password', required: true, minlength: 8, autocomplete: 'new-password' })}${ui().field({ name: 'confirm', label: 'Confirm new password', type: 'password', required: true, match: 'password', autocomplete: 'new-password' })}<button class="btn btn-block" type="submit">Update password</button></form></div></div>`;
-  }, { layout: 'auth', title: 'Reset password' });
-  PL.form('reset', f => { if (!ui().validate(f)) return; const u = PL.q.user(f.dataset.u); u.pw = PL.hashPw(ui().formData(f).password); PL.store.save(); ui().toast('Password updated. Please sign in.'); PL.go('/login'); });
 })();
