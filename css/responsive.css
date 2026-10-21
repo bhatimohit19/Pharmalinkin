@@ -141,3 +141,4 @@ ol.onb2-steps .lbl{font-size:.56rem;letter-spacing:-.2px;max-width:100%;overflow
   button.link-btn{min-height:36px;padding:8px 6px;display:inline-flex;align-items:center;justify-content:center}
 }
 @media (max-width:640px){.chip button[data-action=tag-del]{min-width:28px;min-height:28px;padding:0 4px;margin:-6px -6px -6px 0;display:inline-flex;align-items:center;justify-content:center}}
+@media(max-width:480px){.rcard[data-card=edu] .rc-grid.two{grid-template-columns:1fr}}

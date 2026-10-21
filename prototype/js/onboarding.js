@@ -34,18 +34,22 @@
   const note = t => `<div class="onb-note full">${I('zap', 15)} ${t}</div>`;
 
   /* ---------- repeatable cards (education / experience) ---------- */
-  const years = () => { const y = new Date().getFullYear(), o = []; for (let k = y + 6; k >= 1980; k--) o.push(k); return o; };
+  const years = (ahead = 6) => { const y = new Date().getFullYear(), o = []; for (let k = y + ahead; k >= 1980; k--) o.push(k); return o; };
   const yearSel = (k, v) => `<select data-k="${k}"><option value="">Year</option>${years().map(y => `<option ${String(v) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select>`;
-  const eduCard = (e = {}) => `<div class="rcard" data-card="edu"><div class="rcard-head"><b>Education</b><button type="button" class="icon-btn" data-action="onb-del" aria-label="Remove">${I('trash', 16)}</button></div>
-    <label class="chk"><input type="checkbox" data-k="current" ${e.current ? 'checked' : ''}> Currently Studying</label>
-    <label class="rc-f"><span>Degree / Diploma</span><input data-k="degree" list="onb-quals" placeholder="e.g. B.Pharm, M.Pharm, D.Pharm, MBA" value="${E(e.degree || '')}"></label>
-    <label class="rc-f"><span>Institute / University</span><input data-k="institute" placeholder="Enter institute or university name" value="${E(e.institute || '')}"></label>
-    <div class="rc-grid"><label><span>Start Year</span>${yearSel('from', e.from)}</label><label><span>End Year</span>${yearSel('to', e.current ? '' : e.year)}</label><label><span>CGPA / Percentage</span><input data-k="grade" value="${E(e.grade || '')}" placeholder="e.g. 8.2 or 85%"></label></div></div>`;
-  const DIVS = ['Oncology', 'Cardiology', 'Diabetes', 'Generics', 'Branded Generics', 'Biologics', 'OTC / Consumer Health', 'API', 'Hospital', 'Institutional', 'Medical Devices', 'Clinical Research', 'Regulatory', 'Quality', 'Other'];
+  const EQ = [{ k: '10th', t: 'High School (10th)', req: true, board: true }, { k: '12th', t: 'Intermediate (12th)', req: true, board: true, stream: true }, { k: 'Graduation', t: 'Graduation', req: true, deg: true }, { k: 'Post Graduation', t: 'Post Graduation', req: false, deg: true }, { k: 'Diploma / Certification', t: 'Diploma / Certification Course', req: false, deg: true }];
+  const BOARDS = ['CBSE', 'ICSE / ISC', 'State Board', 'IB', 'NIOS', 'Other'], STREAMS = ['Science (PCB)', 'Science (PCM)', 'Commerce', 'Arts', 'Other'];
+  const star = r => r ? ' <em class="req">*</em>' : '';
+  const eduCard = (q, e = {}) => `<div class="rcard" data-card="edu" data-level="${q.k}"><div class="rcard-head"><b>${q.t}${q.req ? '' : ' <span class="muted xs">(Optional)</span>'}</b></div>
+    <label class="chk"><input type="checkbox" data-k="current" ${e.current ? 'checked' : ''}> Currently pursuing this education</label>
+    ${q.deg ? `<label class="rc-f"><span>${q.k === 'Diploma / Certification' ? 'Course / Certification Name' : 'Degree / Diploma'}${star(q.k === 'Graduation')}</span><input data-k="degree" list="onb-quals" placeholder="${q.k === 'Graduation' ? 'e.g. B.Pharm, D.Pharm, B.Sc' : q.k === 'Diploma / Certification' ? 'e.g. Diploma in Clinical Research, PV Certification' : 'e.g. M.Pharm, MBA, M.Sc'}" value="${E(e.degree || '')}"></label>` : ''}
+    ${q.board ? `<label class="rc-f"><span>Board <em class="req">*</em></span><input data-k="board" list="onb-boards" placeholder="Select or type board" value="${E(e.board || '')}"></label>` : ''}
+    ${q.stream ? `<label class="rc-f"><span>Stream <span class="muted xs">(Optional)</span></span><input data-k="stream" list="onb-streams" placeholder="e.g. Science (PCB)" value="${E(e.stream || '')}"></label>` : ''}
+    <label class="rc-f"><span>${q.deg ? 'Institute / University' : 'School Name'}${star(q.req)}</span><input data-k="institute" placeholder="${q.deg ? 'Enter institute or university name' : 'Enter school name'}" value="${E(e.institute || '')}"></label>
+    <div class="rc-grid two"><label><span>Passing Year${star(q.req)}</span><select data-k="to" ${e.current ? 'disabled' : ''}><option value="">Year</option>${years(q.deg ? 6 : 0).map(y => `<option ${!e.current && String(e.year) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label><label><span>${q.deg ? 'CGPA / %' : 'Percentage / %'} <span class="muted xs">(Optional)</span></span><input data-k="grade" value="${E(e.grade || '')}" placeholder="e.g. 8.2 or 85%"></label></div></div>`;  const DIVS = ['Oncology', 'Cardiology', 'Diabetes', 'Generics', 'Branded Generics', 'Biologics', 'OTC / Consumer Health', 'API', 'Hospital', 'Institutional', 'Medical Devices', 'Clinical Research', 'Regulatory', 'Quality', 'Other'];
   const expCard = (x = {}) => `<div class="rcard" data-card="exp"><div class="rcard-head"><b class="exp-title">${x.current ? 'Present Employer (Current)' : 'Previous Employer'}</b><label class="switch-row"><span class="xs muted">I currently work here</span><span class="switch"><input type="checkbox" data-k="current" ${x.current ? 'checked' : ''}><i></i></span></label><button type="button" class="icon-btn" data-action="onb-del" aria-label="Remove">${I('trash', 16)}</button></div>
-    <label class="rc-f"><span>Company Name</span><input data-k="company" value="${E(x.company || '')}"></label><label class="rc-f"><span>Job Title</span><input data-k="title" value="${E(x.title || '')}"></label><label class="rc-f"><span>Division / Segment</span>    <select data-k="division"><option value="">Select division / segment</option>${DIVS.concat(x.division && !DIVS.includes(x.division) ? [x.division] : []).map(d => `<option ${x.division === d ? 'selected' : ''}>${E(d)}</option>`).join('')}</select></label>
-    <div class="rc-f"><span>CTC (Cost to Company) – per annum</span><div class="phone-row ctc-row"><select data-k="ctcCur" aria-label="Currency">${['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'].map(c => `<option ${(x.ctcCur || 'INR') === c ? 'selected' : ''}>${c}</option>`).join('')}</select><input data-k="ctc" inputmode="decimal" placeholder="e.g. 850000" value="${E(x.ctc || '')}" aria-label="CTC amount"></div></div>
-    <div class="rc-grid two"><label><span>Start Date</span><input type="month" data-k="from" value="${E(x.from || '')}"></label><label><span>End Date</span><input type="${x.current ? 'text' : 'month'}" data-k="to" value="${x.current ? 'Present' : E(x.to && x.to !== 'Present' ? x.to : '')}" ${x.current ? 'disabled' : ''}></label></div>
+    <label class="rc-f"><span>Company Name <em class="req">*</em></span><input data-k="company" value="${E(x.company || '')}"></label><label class="rc-f"><span>Job Title <em class="req">*</em></span><input data-k="title" value="${E(x.title || '')}"></label><label class="rc-f"><span>Division / Segment <em class="req">*</em></span>    <select data-k="division"><option value="">Select division / segment</option>${DIVS.concat(x.division && !DIVS.includes(x.division) ? [x.division] : []).map(d => `<option ${x.division === d ? 'selected' : ''}>${E(d)}</option>`).join('')}</select></label>
+    <div class="rc-f"><span>CTC (Cost to Company) – per annum <em class="req">*</em></span><div class="phone-row ctc-row"><select data-k="ctcCur" aria-label="Currency">${['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD'].map(c => `<option ${(x.ctcCur || 'INR') === c ? 'selected' : ''}>${c}</option>`).join('')}</select><input data-k="ctc" inputmode="decimal" placeholder="e.g. 850000" value="${E(x.ctc || '')}" aria-label="CTC amount"></div></div>
+    <div class="rc-grid two"><label><span>Start Date <em class="req">*</em></span><input type="month" data-k="from" value="${E(x.from || '')}"></label><label><span>End Date <em class="req">*</em></span><input type="${x.current ? 'text' : 'month'}" data-k="to" value="${x.current ? 'Present' : E(x.to && x.to !== 'Present' ? x.to : '')}" ${x.current ? 'disabled' : ''}></label></div>
     <label class="rc-f"><span>Description (Optional)</span><textarea data-k="desc" rows="2" placeholder="Describe your role and key achievements…">${E(x.desc || '')}</textarea></label></div>`;
   const MONF = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const pastYears = () => { const y = new Date().getFullYear(), o = []; for (let k = y; k >= 1980; k--) o.push(k); return o; };
@@ -60,8 +64,8 @@
   /* ---------- candidate steps ---------- */
   function steps(u, dr) {
     const F = ui().field, p = Object.assign({}, prof(u));
-    if (dr) { p.level = dr.level; p.dob = dr.dob; p.education = dr.edu.map(e => ({ degree: e.degree, institute: e.institute, from: e.from, year: e.year, grade: e.grade, current: e.current })); p.experience = dr.exp; p.skills = dr.skills; p.awards = dr.awards; p.certifications = dr.certs.map(c => asEnt(c)); p.languages = dr.langs; p.projects = dr.projects; u = Object.assign({}, u, { location: dr.location }); }
-    const edu = (p.education || []).map(e => Object.assign({}, e, { to: e.year })), exp = (p.experience || []).length ? p.experience : [{ current: true }], ed = edu.length ? edu : [{}];
+    if (dr) { p.level = dr.level; p.dob = dr.dob; p.education = dr.edu; p.experience = dr.exp; p.skills = dr.skills; p.awards = dr.awards; p.certifications = dr.certs.map(c => asEnt(c)); p.languages = dr.langs; p.projects = dr.projects; u = Object.assign({}, u, { location: dr.location }); }
+    const edu = (p.education || []).slice(), legacy = edu.filter(e => !e.level), slot = q => edu.find(e => e.level === q.k) || (q.k === 'Graduation' ? legacy[0] : q.k === 'Post Graduation' ? legacy[1] : null) || {}, exp = (p.experience || []).length ? p.experience : [{ current: true }];
     const tags = { skills: p.skills || [], awards: p.awards || [], certs: (p.certifications || []).map(c => ({ name: c.name, month: c.month, year: c.year })), langs: p.languages || [], projects: p.projects || [] };
     const panel = (t, i) => {
       const k = t[0], dated = DATED.includes(k);
@@ -72,17 +76,17 @@
     const AI = 'We\u2019ll use your information to create a resume that highlights your strengths and gets you noticed.';
     return [
       { title: 'Details', html: [head('Tell us about yourself', 'Add a photo and a few details to personalize your profile.'),
-        `<div class="photo-box full"><div class="photo-av" id="onb-photo">${ui().avatar(u, 84)}</div><b>Add your photo (Optional)</b><small class="muted">JPG or PNG. A clear photo helps recruiters recognize you.</small><div class="row" style="justify-content:center"><button type="button" class="btn btn-secondary btn-sm" data-action="onb-photo" data-cap="user">${I('image', 15)} Take a Photo</button><button type="button" class="btn btn-secondary btn-sm" data-action="onb-photo">${I('upload', 15)} Upload</button></div><button type="button" class="link-btn" data-action="onb-skip-photo">Skip for now</button></div>`,
-        `<div class="photo-box full" id="onb-cv"><b>Upload your resume (Optional)</b><small class="muted">PDF or Word, up to 5 MB. You can skip this and we\u2019ll build one for you.</small><div class="cv-name small" id="onb-cv-name">${p.resumeFile ? I('check', 14) + ' ' + E(p.resumeFile) : ''}</div><div class="row" style="justify-content:center"><button type="button" class="btn btn-secondary btn-sm" data-action="onb-cv">${I('upload', 15)} Upload Resume</button></div></div>`,
-        `<div class="field full" data-field="level"><label>What's your current role? <span class="req">*</span></label><div class="tone-row lvl-row">${[['Fresher', 'user', 'Just starting out'], ['Experienced', 'briefcase', 'Already working']].map(x => `<label class="pill lvl"><input type="radio" name="level" value="${x[0]}" required ${p.level === x[0] ? 'checked' : ''}><span>${I(x[1], 16)} <b>${x[0]}</b><small>${x[2]}</small></span></label>`).join('')}</div></div>`,
+        `<div class="photo-box full"><div class="photo-av" id="onb-photo">${ui().avatar(u, 84)}</div><b>Add your photo (Optional)</b><small class="muted">JPG or PNG. A clear photo helps recruiters recognize you.</small><div class="row" style="justify-content:center"><button type="button" class="btn btn-secondary btn-sm" data-action="onb-photo" data-cap="user">${I('image', 15)} Take a Photo</button><button type="button" class="btn btn-secondary btn-sm" data-action="onb-photo">${I('upload', 15)} Upload</button></div></div>`,
+        `<div class="photo-box full" id="onb-cv"><b>Upload your resume</b><small class="muted">PDF or Word, up to 5 MB.</small><div class="cv-name small" id="onb-cv-name">${p.resumeFile ? I('check', 14) + ' ' + E(p.resumeFile) : ''}</div><div class="row" style="justify-content:center"><button type="button" class="btn btn-secondary btn-sm" data-action="onb-cv">${I('upload', 15)} Upload Resume</button></div></div>`,
+        `<div class="field full" data-field="level"><label>What's your current role? <span class="req">*</span></label><div class="tone-row lvl-row">${[['Fresher', 'user', 'Just starting out'], ['Experienced', 'briefcase', 'Already working']].map(x => `<label class="pill lvl"><input type="radio" name="level" value="${x[0]}" ${p.level === x[0] ? 'checked' : ''}><span>${I(x[1], 16)} <b>${x[0]}</b><small>${x[2]}</small></span></label>`).join('')}</div><small class="lvl-err" role="alert">Please select your current role &ndash; Fresher or Experienced.</small></div>`,
         F({ name: 'location', label: 'Current Location', required: true, full: true, value: u.location || '', placeholder: 'Enter your city' }),
         `<div class="field" data-field="dob"><label for="onb-dob">Date of Birth <span class="req">*</span></label><input type="date" id="onb-dob" name="dob" required max="${new Date().toISOString().slice(0, 10)}" min="1940-01-01" value="${E(p.dob || '')}"></div><div class="field" data-field="age"><label for="onb-age">Age (in years)</label><input id="onb-age" name="age" readonly tabindex="-1" placeholder="Auto-filled" value="${ageOf(p.dob)}"></div>`].join('') },
-      { title: 'Education', html: [head('Add your education', 'Add all your education details (Schools, Colleges, etc.)'),
-        `<datalist id="onb-quals">${PL.QUALS.map(q => `<option value="${E(q)}">`).join('')}</datalist><div class="full rlist" data-list="edu">${ed.map(eduCard).join('')}</div><div class="full"><button type="button" class="btn btn-soft btn-block" data-action="onb-add" data-k="edu">${I('plus', 15)} <span>${addLabel('edu', true)}</span></button></div>`,
-        note('Students can skip. You can always update later!') + `<div class="full" style="text-align:center"><button type="button" class="link-btn" data-action="onb-skip-step">Skip for now</button></div>`].join('') },
-      { title: 'Experience', html: [head('Add your experience', 'Share your work experience (if any)'),
+      { title: 'Education', html: [head('Add your education', 'Fill in each qualification separately &ndash; 10th, 12th, Graduation, Post Graduation and any Diploma / Certification course.'),
+        `<datalist id="onb-quals">${PL.QUALS.map(q => `<option value="${E(q)}">`).join('')}</datalist>        <datalist id="onb-boards">${BOARDS.map(q => `<option value="${q}">`).join('')}</datalist><datalist id="onb-streams">${STREAMS.map(q => `<option value="${q}">`).join('')}</datalist><div class="full rlist edu-list" data-list="edu">${(() => { let seen = false; return EQ.map(q => { const e = slot(q); if (e.current) { if (seen) return eduCard(q, Object.assign({}, e, { current: false, year: '' })); seen = true; } return eduCard(q, e); }).join(''); })()}</div>`,
+                note('Post Graduation and Diploma / Certification are optional &ndash; fill them only if you have completed or are pursuing them. Only one qualification can be marked as currently pursuing.')].join('') },
+              { title: 'Experience', html: [head('Add your experience', 'Share your work experience'),
         `<div class="full rlist" data-list="exp">${exp.map(expCard).join('')}</div><div class="full"><button type="button" class="btn btn-soft btn-block" data-action="onb-add" data-k="exp">${I('plus', 15)} <span>${addLabel('exp', true)}</span></button></div>`,
-        note('Freshers can skip. You can always update later!') + `<div class="full" style="text-align:center"><button type="button" class="link-btn" data-action="onb-skip-step">Skip for now</button></div>`].join('') },
+        ].join('') },
       { title: 'More about you', html: [head('Add more about you', 'Skills, awards, certifications, and more to help you stand out.'),
         `<div class="full"><div class="tabs2" role="tablist">${TABS.map((t, i) => `<button type="button" role="tab" class="${i ? '' : 'on'}" data-action="onb-tab" data-k="${t[0]}">${t[1]}</button>`).join('')}</div>${TABS.map(panel).join('')}</div>`,
         note('You can always update these later')].join('') },
@@ -93,7 +97,7 @@
       { title: 'Template', html: [head('Choose a template', 'Select a style that fits your personality.'),
         `<div class="full"><div class="tpl2-grid" role="radiogroup" aria-label="Resume template">${TEMPLATES.map((t, i) => `<label class="tpl2"><input type="radio" name="template" value="${t}" ${i ? '' : 'checked'}><span class="tpl2-prev tp-${t.toLowerCase()}"><i></i><i></i><i></i><i></i><i></i></span><b>${t}</b></label>`).join('')}</div><button type="button" class="link-btn more-tpl" data-action="onb-more-tpl">More templates</button></div>`,
         `<div class="full inc-box"><b>Your resume will include</b><div class="inc-grid" id="onb-includes"></div></div>`].join('') },
-      { title: 'Ready', html: [`<div class="onb-head row between nowrap"><div><h2 style="text-align:left">Your resume is ready!</h2><p class="muted" style="text-align:left">Preview and make any final changes.</p></div><button type="button" class="btn btn-secondary btn-sm" data-action="onb-edit-ai">Edit with AI ${I('zap', 14)}</button></div>`,
+      { title: 'Ready', html: [`<div class="onb-head row between nowrap"><div><h2 style="text-align:left">Your resume is ready!</h2><p class="muted" style="text-align:left">Preview and make any final changes.</p></div></div>`,
         `<div class="full" id="resume-preview"></div>`, `<p class="xs muted full" style="text-align:center">Looks good? You can customize it anytime.</p>`].join('') }
     ];
   }
@@ -101,10 +105,10 @@
   /* ---------- reading the form / building the resume ---------- */
   function readForm(f) {
     const val = n => { const el = f.querySelector(`[name="${n}"]`); return el ? el.value.trim() : ''; };
-    const cards = k => [...f.querySelectorAll(`[data-card="${k}"]`)].map(c => { const o = {}; c.querySelectorAll('[data-k]').forEach(el => { o[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value.trim(); }); return o; });
+    const cards = k => [...f.querySelectorAll(`[data-card="${k}"]`)].map(c => { const o = { level: c.dataset.level }; c.querySelectorAll('[data-k]').forEach(el => { o[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value.trim(); }); return o; });
     const tag = k => [...f.querySelectorAll(`.tag-list[data-k="${k}"] [data-v]`)].map(e => DATED.includes(k) ? { name: e.dataset.v, month: e.dataset.m || '', year: e.dataset.y || '' } : e.dataset.v);
     const on = n => { const el = f.querySelector(`[name="fx_${n}"]`); return !el || el.checked; };
-    const edu = cards('edu').filter(e => e.degree || e.institute).map(e => ({ degree: e.degree, institute: e.institute, from: e.from, year: e.current ? 'Present' : e.to, grade: e.grade, current: e.current }));
+    const edu = cards('edu').filter(e => e.degree || e.institute || e.board || e.stream || e.to || e.grade || e.current).map(e => ({ level: e.level, degree: e.level === '10th' ? 'High School (10th)' : e.level === '12th' ? 'Intermediate (12th)' + (e.stream ? ' (' + e.stream + ')' : '') : e.degree, board: e.board || '', stream: e.stream || '', institute: e.institute, year: e.current ? 'Present' : e.to, grade: e.grade, current: e.current }));
     const lv = f.querySelector('[name=level]:checked'), level = lv ? lv.value : '';
     const exp = level === 'Fresher' ? [] : cards('exp').filter(x => x.company || x.title).map(x => ({ title: x.title, company: x.company, division: x.division, ctcCur: x.ctcCur, ctc: x.ctc, from: x.from, to: x.current ? 'Present' : (x.to || 'Present'), desc: x.desc, current: x.current }));
     const t = f.querySelector('[name=tone]:checked'), tp = f.querySelector('[name=template]:checked');
@@ -129,15 +133,15 @@
   function resumeHtml(d, u, tpl) {
     const sec = (t, b) => b ? `<h4>${t}</h4>${b}` : '', chips = a => `<div class="rchips">${a.map(s => `<span>${E(s)}</span>`).join('')}</div>`, inc = d.inc || {};
     const ex = inc.exp !== false && d.exp.length ? d.exp.map(x => `<div class="r-row"><div><b>${E(x.title || '')}</b>${x.company ? `<div class="muted">${E(x.company)}${x.division ? ' · ' + E(x.division) : ''}</div>` : ''}</div><span class="muted">${monthYr(x.from)}${x.from ? ' – ' : ''}${monthYr(x.to)}</span></div>${x.desc ? `<p class="r-desc">${E(x.desc)}</p>` : ''}`).join('') : '';
-    const ed = inc.edu !== false && d.edu.length ? d.edu.map(x => `<div class="r-row"><div><b>${E(x.degree || '')}</b>${x.institute ? `<div class="muted">${E(x.institute)}</div>` : ''}${x.grade ? `<div class="muted">CGPA/Score: ${E(x.grade)}</div>` : ''}</div><span class="muted">${E(x.from || '')}${x.from ? ' – ' : ''}${E(x.year || '')}</span></div>`).join('') : '';
+    const ed = inc.edu !== false && d.edu.length ? d.edu.map(x => `<div class="r-row"><div><b>${E(x.degree || '')}</b>${x.institute || x.board ? `<div class="muted">${E([x.institute, x.board].filter(Boolean).join(' · '))}</div>` : ''}${x.grade ? `<div class="muted">CGPA/Score: ${E(x.grade)}</div>` : ''}</div><span class="muted">${E(x.year || '')}</span></div>`).join('') : '';
     const contact = [u.phone && I('phone', 12) + ' ' + E(u.phone), u.email && I('mail', 12) + ' ' + E(u.email), d.location && I('pin', 12) + ' ' + E(d.location)].filter(Boolean).join('<span class="sep"></span>');
     return `<div class="resume resume2 rt-${E(String(tpl || 'Modern').toLowerCase())}"><div class="resume-head">${ui().avatar(u, 54)}<div><h3>${E(u.name)}</h3><div class="r-role">${E(d.role)}</div><div class="r-contact">${contact}</div></div></div>
       ${sec('Professional Summary', `<p>${E(d.summary || aiSummary(d))}</p>`)}${sec('Experience', ex)}${sec('Education', ed)}${inc.skills !== false && d.skills.length ? sec('Skills', chips(d.skills)) : ''}${inc.projects !== false && d.projects.length ? sec('Projects', `<p>${E(d.projects.join(' · '))}</p>`) : ''}${inc.awards !== false && d.awards.length ? sec('Awards', `<p>${E(d.awards.map(lab).join(' · '))}</p>`) : ''}${d.certs.length ? sec('Certifications', `<p>${E(d.certs.map(lab).join(' · '))}</p>`) : ''}${d.langs.length ? sec('Languages', `<p>${E(d.langs.join(' · '))}</p>`) : ''}</div>`;
   }
   PL.onb.resumeCard = u => { const p = (u.profile || {}); if (!(p.about || (p.education || []).length || (p.experience || []).length || (p.skills || []).length)) return ''; return '<div class="card pad-lg"><h3 style="margin-top:0">Your PharmaLinkIn resume <span class="badge b-teal">' + E(p.resumeTemplate || 'Modern') + '</span></h3>' + resumeHtml(profData(u, p), u, p.resumeTemplate) + DLROW + '</div>'; };
-  const RHEAD = '<div class="rs-head"><b>Your resume</b><button type="button" class="btn btn-secondary btn-sm" data-action="onb-download">' + I('download', 14) + ' Download PDF</button></div>';
-  const DLROW = '<div class="row mt" style="justify-content:center"><button type="button" class="btn btn-secondary btn-sm" data-action="onb-download">' + I('download', 14) + ' Download PDF</button></div>';
-  const profData = (u, p) => ({ role: p.headline || '', location: u.location || '', summary: p.about, exp: (p.experience || []).map(x => ({ title: x.title, company: x.company, division: x.division, from: x.from, to: x.to, desc: x.desc })), edu: (p.education || []).map(x => ({ degree: x.degree, institute: x.institute, from: x.from, year: x.year, grade: x.grade })), skills: p.skills || [], awards: (p.awards || []).map(asEnt), certs: (p.certifications || []).map(c => ({ name: c.name, month: c.month, year: c.year })), langs: p.languages || [], projects: p.projects || [], inc: {} });
+  const RHEAD = '<div class="rs-head"><b>Your resume</b></div>';
+  const DLROW = '';
+  const profData = (u, p) => ({ role: p.headline || '', location: u.location || '', summary: p.about, exp: (p.experience || []).map(x => ({ title: x.title, company: x.company, division: x.division, from: x.from, to: x.to, desc: x.desc })), edu: (p.education || []).map(x => ({ degree: x.degree, board: x.board, institute: x.institute, year: x.year, grade: x.grade })), skills: p.skills || [], awards: (p.awards || []).map(asEnt), certs: (p.certifications || []).map(c => ({ name: c.name, month: c.month, year: c.year })), langs: p.languages || [], projects: p.projects || [], inc: {} });
 
   function refreshIncludes(f) {
     const d = readForm(f), box = f.querySelector('#onb-includes'); if (!box) return;
@@ -185,14 +189,49 @@
   document.addEventListener('submit', e => {
     const f = e.target.closest && e.target.closest('form[data-form="onboarding"]'); if (!f) return;
     const fs = [...f.querySelectorAll('.fstep')], cur = +f.dataset.cur || 0, scope = cur === fs.length - 1 ? fs : [fs[cur]];
-    for (const s of scope) for (const c of s.querySelectorAll('.rcard')) {
+    f.querySelectorAll('.rc-bad').forEach(x => x.classList.remove('rc-bad'));
+    const bad = (s, t, msg) => { e.preventDefault(); e.stopImmediatePropagation(); ui().stepShow(f, fs.indexOf(s)); t.classList.add('rc-bad'); t.focus(); ['input', 'change'].forEach(ev => t.addEventListener(ev, () => t.classList.remove('rc-bad'), { once: true })); ui().toast(msg, 'err'); };
+    for (const s of scope) for (const c of s.querySelectorAll('.rcard[data-card="edu"]')) {
+      const g = k => c.querySelector(`[data-k="${k}"]`), v = k => ((g(k) || {}).value || '').trim(), lv = c.dataset.level, cur = g('current').checked;
+      if (lv !== '10th' && lv !== '12th' && lv !== 'Graduation' && !cur && !['degree', 'institute', 'to', 'grade'].some(v)) continue;
+      const miss = [g('degree') ? 'degree' : '', g('board') ? 'board' : '', 'institute', cur ? '' : 'to'].find(k => k && !v(k)), nm = { degree: lv === 'Diploma / Certification' ? 'course / certification name' : 'degree', board: 'board', institute: lv === '10th' || lv === '12th' ? 'school name' : 'institute / university', to: 'passing year' }, ttl = (EQ.find(q => q.k === lv) || {}).t || lv;
+      if (miss) { bad(s, g(miss), `Please select/enter the ${nm[miss]} for ${ttl}`); return; }
+    }
+    const lvl = f.querySelector('[name=level]:checked');
+    for (const s of scope) { const lr = s.querySelector('[data-field="level"] .lvl-row'); if (lr && !lvl) { bad(s, lr, 'Please select whether you are a Fresher or Experienced'); return; } }
+    const fresher = !!(lvl && lvl.value === 'Fresher');
+    for (const s of fresher ? [] : scope) {
+      const cs = [...s.querySelectorAll('.rcard[data-card="exp"]')];
+      if (cs.length && lvl && lvl.value !== 'Fresher' && !cs.some(c => ['company', 'title'].some(k => ((c.querySelector(`[data-k="${k}"]`) || {}).value || '').trim()))) { bad(s, cs[0].querySelector('[data-k="company"]'), 'Please add your work experience'); return; }
+    }
+    for (const s of fresher ? [] : scope) for (const c of s.querySelectorAll('.rcard[data-card="exp"]')) {
+      const g = k => c.querySelector(`[data-k="${k}"]`), v = k => ((g(k) || {}).value || '').trim();
+      if (!['company', 'title', 'division', 'from', 'to', 'ctc', 'desc'].some(v)) continue;
+      const miss = ['company', 'title', 'division', 'ctc', 'from', 'to'].find(k => g(k) && !g(k).disabled && !v(k));
+      if (!miss) continue;
+      bad(s, g(miss), 'Please fill in all experience fields (only the description is optional)'); return;
+    }
+    for (const s of scope) for (const c of s.querySelectorAll(fresher ? '.rcard[data-card="edu"]' : '.rcard')) {
       const a = c.querySelector('[data-k="from"]'), b = c.querySelector('[data-k="to"]'); if (!a || !b || b.disabled || !a.value || !b.value || !(c.dataset.card === 'edu' ? Number(b.value) < Number(a.value) : b.value < a.value)) continue;
       e.preventDefault(); e.stopImmediatePropagation(); ui().stepShow(f, fs.indexOf(s)); b.focus();
       ui().toast(c.dataset.card === 'edu' ? 'End year can\u2019t be before the start year' : 'End date can\u2019t be before the start date', 'err'); return;
     }
   }, true);
   PL.act('onb-edit-ai', () => { const f = document.querySelector('form[data-form="onboarding"]'), rs = [...f.querySelectorAll('[name=tone]')], k = rs.findIndex(r => r.checked), n = rs[(k + 1) % rs.length]; n.checked = true; renderPreview(f); ui().toast('Rewrote your summary in a ' + n.value + ' tone'); });
-  PL.act('onb-download', () => {
+  /* Excel (CSV) export: every qualification gets its own columns so 10th / 12th / Graduation / Post Graduation can be managed independently */
+  PL.onb.exportRows = users => {
+    const H = ['Name', 'Email', 'Mobile', 'Date of Birth', 'Age', 'Location'], per = { '10th': ['Board', 'School', 'Passing Year', 'Percentage', 'Currently Pursuing'], '12th': ['Board', 'Stream', 'School', 'Passing Year', 'Percentage', 'Currently Pursuing'], Graduation: ['Degree', 'Institute', 'Passing Year', 'CGPA/Percentage', 'Currently Pursuing'], 'Post Graduation': ['Degree', 'Institute', 'Passing Year', 'CGPA/Percentage', 'Currently Pursuing'], 'Diploma / Certification': ['Course', 'Institute', 'Passing Year', 'Grade/Percentage', 'Currently Pursuing'] };
+    EQ.forEach(q => per[q.k].forEach(c => H.push(q.t + ' - ' + c)));
+    const rows = users.map(u => {
+      const p = u.profile || {}, ed = p.education || [], r = [u.name, u.email, u.phone || '', p.dob || '', ageOf(p.dob), u.location || ''];
+      EQ.forEach(q => { const e = ed.find(x => x.level === q.k) || {}, yr = e.current ? '' : (e.year || ''), cp = e.current ? 'Yes' : (e.level ? 'No' : '');
+        r.push(...(q.k === '10th' ? [e.board, e.institute, yr, e.grade, cp] : q.k === '12th' ? [e.board, e.stream, e.institute, yr, e.grade, cp] : [e.degree, e.institute, yr, e.grade, cp]).map(x => x || '')); });
+      return r;
+    });
+    return [H].concat(rows);
+  };
+  PL.act('onb-export', () => { const u = me(); ui().csv('my-profile-details.csv', PL.onb.exportRows([u])); });
+  PL.act('admin-export-cand', () => ui().csv('candidates.csv', PL.onb.exportRows(PL.store.s.users.filter(u => u.role === 'candidate'))));  PL.act('onb-download', () => {
     const el = document.querySelector('.resume'); if (!el) return;
     const css = [...document.querySelectorAll('link[rel=stylesheet]')].map(l => `<link rel="stylesheet" href="${l.href}">`).join(''), fr = document.createElement('iframe');
     const doc = `<!doctype html><html><head>${css}</head><body style="margin:0;padding:16px;background:#fff">${el.outerHTML}</body></html>`;
@@ -223,9 +262,18 @@
   PL.act('tag-pop', d => addTag(d.k, d.v));
   PL.act('tag-del', (d, el) => el.closest('.chip').remove());
   document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-tag-input]')) { e.preventDefault(); addTag(e.target.dataset.tagInput, e.target.value); e.target.value = ''; } });
+  /* autosave: keep everything typed so far, so re-login resumes exactly where the user left off */
+  let draftTimer;
+  const autosave = e => {
+    const f = e.target.closest && e.target.closest('form[data-form="onboarding"]'); if (!f) return;
+    clearTimeout(draftTimer); draftTimer = setTimeout(() => { const u = me(); if (u && f.isConnected) { prof(u).draft = Object.assign(readForm(f), { step: +f.dataset.cur || 0 }); PL.store.save(); } }, 250);
+  };
+  ['input', 'change', 'click'].forEach(ev => document.addEventListener(ev, e => { if (ev !== 'click' || (e.target.closest && e.target.closest('.tag-list,[data-action^="tag-"],[data-action="onb-del"],[data-action="onb-add"]'))) autosave(e); }));
+
   document.addEventListener('change', e => {
     const t = e.target; if (!t.matches || !t.matches('.rcard input[data-k="current"]')) return;
     const c = t.closest('.rcard'), end = c.querySelector('[data-k="to"]');
+    if (c.dataset.card === 'edu' && t.checked) document.querySelectorAll('.rcard[data-card="edu"] input[data-k="current"]:checked').forEach(o => { if (o === t) return; o.checked = false; const oe = o.closest('.rcard').querySelector('[data-k="to"]'); if (oe) oe.disabled = false; });
     if (c.dataset.card === 'exp') c.querySelector('.exp-title').textContent = t.checked ? 'Present Employer (Current)' : 'Previous Employer';
     if (end) { end.disabled = t.checked; end.value = ''; end.type = t.checked ? 'text' : 'month'; if (t.checked) end.value = 'Present'; }
   });
@@ -245,7 +293,7 @@
     const u = me(); if (!u) return; const d = readForm(f), p = prof(u);
     d.summary = f._summary || aiSummary(d);
     u.location = d.location; p.dob = d.dob; p.level = d.level; p.headline = d.role; p.about = d.summary;
-    p.education = d.edu.map(e => ({ id: PL.store.id('e'), degree: e.degree, institute: e.institute, from: e.from, year: e.year, grade: e.grade }));
+    p.education = d.edu.map(e => ({ id: PL.store.id('e'), level: e.level, degree: e.degree, board: e.board, stream: e.stream, institute: e.institute, year: e.year, grade: e.grade, current: e.current }));
     p.experience = d.exp.map(x => ({ id: PL.store.id('x'),     title: x.title, company: x.company, division: x.division, ctcCur: x.ctcCur, ctc: x.ctc, from: x.from, to: x.to, desc: x.desc }));
     const cur = d.exp[0]; p.title = cur ? cur.title : ''; p.company = cur ? cur.company : ''; p.experienceYears = expYears(d.exp);
     p.skills = d.skills; p.languages = d.langs; p.awards = d.awards; p.projects = d.projects;
@@ -253,7 +301,7 @@
     p.qualification = (d.edu[0] && d.edu[0].degree) || p.qualification || '';
     p.preferences = Object.assign({ roles: [PL.CATEGORIES[0]], locations: [d.location], jobType: 'Full-time', salary: '' }, p.preferences || {});
     p.resumeTemplate = d.template; p.resumeTone = d.tone; p.privacy = Object.assign({ visibility: 'Public', showEmail: false, showPhone: false }, p.privacy || {});
-    p.onboarded = true; delete p.draft; PL.store.save(); ui().toast('Profile saved!'); PL.go('/onboarding/done');
+    p.onboarded = true; delete p.draft; PL.store.save(); ui().toast('Profile saved! Here are jobs for you'); PL.go('/job-search');
   });
 
   /* ---------- finish page ---------- */
@@ -269,10 +317,13 @@
     const left = `<div class="card pad" style="box-shadow:none"><div class="row nowrap" style="gap:14px">${ui().avatar(u, 56)}<div class="grow"><div class="bold">${E(u.name)}</div><div class="muted small">${E(p.headline)} · ${E(u.location)}</div></div></div><div class="mt-s"><div class="row between small"><span>Profile strength</span><b>${c.pct}%</b></div>${ui().progress(c.pct)}</div></div>
       <div class="mt">${row('Summary', E(p.about))}${row('Latest role', ex ? [ex.title, ex.company].filter(Boolean).map(E).join(' at ') : 'Fresher / not added')}${row('Education', ed ? [ed.degree, ed.institute].filter(Boolean).map(E).join(' – ') || 'Not added' : 'Not added')}${row('Skills', chips(p.skills))}${(p.awards || []).length ? row('Awards', chips((p.awards || []).map(lab))) : ''}</div>`;
     const right = `${RHEAD}${resumeHtml(profData(u, p), u, p.resumeTemplate)}`;
-    return PL.onb.shell(LAB.c.length, `<div style="text-align:center"><span class="badge b-green">${I('check', 14)} Onboarding complete</span><h1 style="font-size:1.7rem;margin-top:10px">You're all set, ${E(u.name.split(' ')[0])}!</h1><p class="muted">Here is your profile summary.</p></div>
+    const st = (n, l) => `<div class="dash-stat"><b>${n}</b><span>${l}</span></div>`;
+    const stats = `<div class="dash-stats">${st(c.pct + '%', 'Profile strength')}${st((p.skills || []).length, 'Skills')}${st((p.education || []).length, 'Education')}${st((p.experience || []).length, 'Experience')}</div>`;
+    return PL.onb.shell(LAB.c.length, `<div style="text-align:center"><span class="badge b-green">${I('check', 14)} Profile created</span><h1 style="font-size:1.7rem;margin-top:10px">Dashboard</h1><p class="muted">Welcome, ${E(u.name.split(' ')[0])}! Your resume is ready &ndash; download it anytime from here.</p></div>
+      <div class="mt">${stats}</div>
       <div class="done-grid mt"><div>${left}</div><div>${right}</div></div>
-      <div class="notice done-notice mt" style="padding:12px 14px;border-radius:10px;background:var(--surface-2,#f4f7fb)">${I('zap', 16)} <b>Coming soon:</b> job search, network, messaging and more.</div>
-      <div class="row mt" style="justify-content:center"><a class="btn btn-secondary" href="#/onboarding">${I('edit', 14)} Edit my answers</a><button class="btn btn-ghost" data-action="logout">Sign out</button></div>`, false, 'c', true);
+      <div class="row mt" style="justify-content:center"><a class="btn" href="#/job-search">${I('search', 14)} Find jobs</a></div>
+      <div class="row mt" style="justify-content:center"><button class="btn btn-secondary" data-action="onb-export">${I('download', 14)} Export to Excel</button><a class="btn btn-secondary" href="#/onboarding">${I('edit', 14)} Edit my answers</a><button class="btn btn-ghost" data-action="logout">Sign out</button></div>`, false, 'c', true);
   }, { layout: 'auth', title: 'Onboarding complete' });
 
   /* ---------- employer onboarding ---------- */

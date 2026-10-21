@@ -8,17 +8,19 @@
   const brand = (href = '/') => `<a href="#${href}" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span><span>Pharma<b>LinkIn</b></span></a>`;
 
   function profileMenu(u) {
-    const items = [{ label: 'My dashboard', href: '#' + PL.auth.homeFor(u), icon: 'dash' }];
+    const items = PL.onboardingOnly() && u.role === 'candidate' ? [{ label: 'Find jobs', href: '#/job-search', icon: 'briefcase' }, { label: 'My dashboard', href: '#/dashboard', icon: 'dash' }] : [{ label: 'My dashboard', href: '#' + PL.auth.homeFor(u), icon: 'dash' }];
     if (['candidate', 'recruiter'].includes(u.role) && !PL.onboardingOnly()) items.push({ label: 'View profile', href: '#/app/profile', icon: 'user' }, { label: 'Settings', href: '#/app/settings', icon: 'settings' });
     items.push('-', { label: 'Sign out', action: 'logout', icon: 'logout' });
     return `<div class="dd"><button class="icon-btn" data-action="dd" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu" style="width:auto;padding:2px">${ui().avatar(u, 34)}</button><div class="dd-menu" role="menu"><div style="padding:8px 10px"><div class="bold">${E(u.name)}</div><div class="xs muted">${PL.auth.roleLabel(u.role)}</div></div><div class="dd-sep"></div>${items.map(i => i === '-' ? '<div class="dd-sep"></div>' : i.href ? `<a class="dd-item" role="menuitem" href="${i.href}">${I(i.icon, 16)}${i.label}</a>` : `<button class="dd-item" role="menuitem" data-action="${i.action}">${I(i.icon, 16)}${i.label}</button>`).join('')}</div></div>`;
   }
 
+  PL.brandHtml = brand; PL.profileMenu = profileMenu; PL.footerHtml = () => footer();
   function publicLayout(ctx, html, u) {
-    const links = PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
-    const act = active(ctx.path, links);
-    return `${BANNER}<header class="site-header"><div class="container inner">${brand()}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
-      <div class="row auth-btns" style="margin-left:auto">${u ? `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
+    const cand = PL.onboardingOnly() && u && u.role === 'candidate';
+    const links = cand ? [['Jobs', '/job-search'], ['Dashboard', '/dashboard']] : PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
+    const act = active(/^\/job/.test(ctx.path) && cand ? '/job-search' : ctx.path, links);
+    return `${BANNER}<header class="site-header"><div class="container inner">${brand(cand ? '/job-search' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
+      <div class="row auth-btns" style="margin-left:auto">${u ? `${cand ? '' : `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>`}${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
       <main id="main" tabindex="-1">${html}</main>${footer()}`;
   }
   function footer() {
@@ -65,7 +67,7 @@
     render(meta, ctx, html, user) {
       const L = meta.layout || 'public'; document.body.className = L === 'admin' ? 'theme-admin' : '';
       let out;
-      if (L === 'public') out = publicLayout(ctx, html, user); else if (L === 'auth') out = authLayout(html);
+      if (L === 'jobs') out = PL.jobsLayout(ctx, html, user); else if (L === 'public') out = publicLayout(ctx, html, user); else if (L === 'auth') out = authLayout(html);
       else if (L === 'app') out = appLayout(ctx, html, user); else out = dashLayout(L, ctx, html, user);
       document.getElementById('root').innerHTML = out;
     }

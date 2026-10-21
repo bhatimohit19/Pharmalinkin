@@ -122,7 +122,7 @@
     const cats = {}; d.jobs.filter(j => j.status === 'Published').forEach(j => (cats[j.department] = (cats[j.department] || 0) + 1));
     const cat = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const ads = d.campaigns.reduce((m, k) => (m.i += k.metrics.impressions, m.c += k.metrics.clicks, m.s += k.spend, m), { i: 0, c: 0, s: 0 });
-    return `${ui().pageHead('Reports & analytics', `<button class="btn btn-secondary" data-action="admin-export">${I('download', 16)} Export CSV</button>`)}
+    return `${ui().pageHead('Reports & analytics', `<button class="btn btn-secondary" data-action="admin-export">${I('download', 16)} Export CSV</button> <button class="btn btn-secondary" data-action="admin-export-cand">${I('download', 16)} Export candidates (Excel)</button>`)}
       <div class="grid g2"><div class="card pad"><h3>Applications per month</h3>${ui().lineChart({ labels: ms.map(m => m.label), values: countBy(d.applications, ms, a => a.appliedAt), color: '#0E9384', name: 'Applications' })}</div>
       <div class="card pad"><h3>Published jobs by category</h3>${ui().barChart({ labels: cat.map(c => c[0].split(' ')[0]), series: [{ name: 'Jobs', color: '#155EEF', values: cat.map(c => c[1]) }] })}</div>
       <div class="card pad"><h3>Most viewed jobs</h3>${top.map(j => `<div class="person-row"><div class="grow small">${E(j.title)}</div><b>${F().num(j.views)}</b></div>`).join('')}</div>

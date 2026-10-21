@@ -143,3 +143,92 @@ Working source, polished prototype, README (setup, demo logins per role, route/s
 - **Client obs batch (register/details/education):** flag next to country code (inline SVG, changes with selection); Google/LinkedIn brand logos on register buttons; DOB (date picker, required) + auto-calculated read-only Age on Details (stored as profile.dob); Education: 'Degree / Diploma' + Institute, 'Currently Studying' moved to top of the card, red delete icon, '← Back' on step Back button. Experience: current-only toggle + CTC were already done earlier (client tested an old build).
 
 - **Mobile QA pass:** audited all screens at 360 and 390px (no horizontal overflow, no JS errors). Global rule: every input/select/textarea is 16px on mobile (no iOS zoom); .btn-sm min-height 40px; link-buttons and chip x get larger tap areas.
+
+- **Download PDF placement (update):** now in a "Your resume" header row (`.rs-head`: title left, Download PDF right) above the resume on the Ready step, done page and /app/resume.
+
+- **Client mobile reference (image: `reference/client-mobile-wireframe.png`)** - client's mobile wireframe of the full Phase 1 flow; use as the visual target for mobile. Key details:
+  - Landing: pharmalinkin.com logo + "Already have an account? Sign in" on top; "Trusted by top companies" pill with a brand carousel (Cipla, Novartis, GSK, Pfizer, Sun Pharma, arrows); "Your Next Career Move / Starts Here" heading; Candidate and Employer cards SIDE BY SIDE (illustration, text, Register as Candidate (blue) / Register as Employer (outline)); 4 feature icons in one row (Verified Jobs, Trusted Companies, AI Powered Matching, Career Growth).
+  - 7-step bar ("Step N of 7": Account, Verify, Details, Education, Experience, Resume, Finish) with check dots; centered title + subtitle per step; "<- Back" at bottom-left next to a full-width blue Continue.
+  - Create account: First Name + Surname in one row; mobile with flag + India (+91) select and number side by side; Email; Password with eye and "Minimum 8 characters"; Continue; "or"; Google + LinkedIn buttons in one row with logos; Terms/Privacy line.
+  - Verify: Mobile card (Edit) + 6 OTP boxes + "Resend in 00:25"; Email card (Edit) + 6 OTP boxes; "Verify & Continue".
+  - Details: dashed photo box (avatar, Take a Photo / Upload, Skip for now); current role select; Current Location with pin icon.
+  - Education: "+ Add Education"; compact cards (degree + "Currently Studying" checkbox top-right, red delete icon, institute, Start/End Year selects, CGPA/Percentage); "+ Add Another Education"; green-ish tip "Students can skip. You can always update later!".
+  - Experience: "Present Employer (Current)" with "I currently work here" toggle; Company, Job Title, Start Date / End Date (Present), Description; "+ Add Experience"; tip "Freshers can skip...".
+  - More about you: tabs Skills/Awards/Certifications/Languages/Projects; skill input + blue Add; "Popular:" chips; "Your Skills" chips with x; "Awards & Achievements (Optional)" + "Add Award"; tip "You can always update these later".
+  - AI resume: "Create your resume with AI" + AI Powered badge; focus checkboxes (Education, Skills, Experience, Projects, Awards); tone pills (Professional, Modern, Concise); "Next: Choose Template".
+  - Template: 4 thumbnails (Modern, Professional, Creative, Classic) + "More templates"; "Your resume will include" icon grid; "Create My Resume".
+  - Ready: "Your resume is ready!" + "Edit with AI"; resume preview; Download PDF + Save to Profile side by side; "Looks good? You can customize it anytime."
+  - Note: this wireframe shows older layouts in places (e.g. "Popular:" label, Download PDF beside Save to Profile); the later written observations (Download PDF inside Resume section, dated awards, DOB/Age, CTC, etc.) take precedence.
+
+- **Finish page = Dashboard (client obs):** Download PDF stays on the Ready step right after the resume is created. The finish page (`/onboarding/done`) is now titled "Dashboard": welcome, 4 stat tiles (profile strength, skills, education, experience), profile summary, and the resume with its Download PDF button. Fresher skipping Experience was already working.
+- **Experience fields mandatory (client obs):** in each experience card all fields (company, title, division, CTC currency+amount, start, end unless current) are required; only description is optional. Fully empty cards are treated as skipped.
+
+
+- **Education/Upload/Skip changes (client obs):** "(Optional)" removed from Upload resume; "Skip for now" removed from Education and Experience (Experienced users must add at least one job; Fresher still auto-skips Experience). Education is now four fixed cards: 10th, 12th, Graduation, Post Graduation, each with its own "Currently pursuing this education" checkbox. Passing Year is year-only (no start year/month). Board (10th/12th) and Stream (12th) optional; 10th/12th/Graduation need school/institute + passing year (+ degree for Graduation) unless pursuing; Post Graduation fully optional but must be complete if started. Stored as profile.education entries with `level`, `board`, `stream`. Excel export (CSV w/ BOM) has separate columns per qualification: `PL.onb.exportRows`; button "Export to Excel" on the Dashboard (own data) and "Export candidates (Excel)" on admin Reports (hidden in Phase 1).
+
+## Forgot Username + Jobs module (latest batch)
+- **Forgot Username** (`#/forgot-username`, `js/forgot.js`, `st.mode='un'`): first name + registered mobile -> OTP (demo 123456) -> choose Email or WhatsApp (masked) -> generic "Username Sent" message. Demo-only line shows the real username (remove in production). Linked from login ("Forgot username?").
+- **Jobs (Naukri-style, `js/jobs.js` + `css/jobs.css`)**: routes `/job-search` (hero search: keywords + experience + location, suggestions, popular chips, recommended, top companies, browse by function/location), `/job-results?...` (filters in URL: work mode, experience slider, department, salary, location, freshness, role category, education, industry; applied-filter chips, sort, pagination, mobile filter drawer), `/job/:id` (detail, Apply/Save, similar jobs). Apply is a demo (stored in `profile.applied`).
+- After finishing onboarding the candidate is redirected to `/job-search`; header shows Jobs / Dashboard. Dashboard has a "Find jobs" button. `config.js` allowlist includes the new routes.
+
+## Jobs UI redesign (Naukri-style, client screenshots)
+- New `jobs` layout (`PL.jobsLayout` in `js/jobs.js`, hooked in `app.js`): sticky header (logo, Home/Jobs/Dashboard, search pill, PRO pill, bell, avatar). Clicking the search pill opens a full-width search overlay (keyword / experience / location + Search, suggestions, Esc/scrim closes).
+- `/job-search` = "My home": 3 columns - profile card with completion ring + profile performance + side nav; PRO banner, Recommended tabs (Applies/Profile/You might like/Preferences) with scrolling cards, Early access roles; right promo + safety cards.
+- `/job-results`: filters left, results centre ("1 - 6 of N <query> jobs", Send me jobs like these, Sort by), Naukri-style cards (rating, exp | location | salary, description, skills dots, Save), PRO promo right. Mobile: filter drawer.
+- `/premium`: "Elevate your career" Pro page with What-you-will-get table (demo; Get Pro shows a toast). Allowed in `config.js`.
+- Ratings/reviews on cards are generated demo values.
+
+## Update: Education + role validation
+- Education now has 5 cards: 10th, 12th, Graduation, Post Graduation (optional), Diploma / Certification Course (optional); separate Excel columns for each.
+- 'Currently pursuing' is exclusive across education cards (checking one unchecks the others).
+- Role (Fresher/Experienced) shows inline red validation + toast if unselected (native 'required' removed since the radios are hidden).
+
+## Update: Resume cleanup
+- Removed 'Download PDF' (resume header + dashboard resume card) and 'Edit with AI' button from the resume step. After 'Save to Profile' the candidate lands on /job-search.
+
+## Update: Pro removed
+- Client: no Pro. Removed header PRO pill, Pro banner on My home, 'Upto 3X boost' button, Pro promo on results, and the /premium page (and its allowlist entry).
+
+## Update: Dashboard revealed
+- New candidate Dashboard at #/dashboard (jobs layout, js/jobs.js, allowlisted): KPIs (Applications, Saved jobs, Profile strength, Skills), Recent applications, Saved jobs, Recommended, profile-strength card (Edit my answers). Header Dashboard link / avatar menu / My home card point to it. #/onboarding/done remains the resume/profile summary ('My resume' button).
+- Flow verified: onboarding finish -> #/job-search -> Dashboard.
+
+## Update: Job actions + contact details
+- Job cards (results) and Dashboard job rows now have Share (copies job link), Save, View job. Job detail has Share + Save + Apply and a 'Contact details' card (recruiter name, email as mailto, phone as tel; demo data from the job's recruiter user).
+
+## Update: Onboarding autosave
+- Draft is now autosaved on every input/change (and tag add/remove, card add/delete) in onboarding.js, not only on Next, so re-login resumes with all typed data (education etc.) and the current step.
+
+## Update: stale 'currently pursuing' on restore
+- When a saved draft/profile has several education cards marked current (old data), only the first stays current on load; the others are unchecked and their Passing Year re-enabled.
+
+
+### Education and Experience validation update
+- Education cards are renamed High School (10th) and Intermediate (12th). The keys stay 10th and 12th.
+- Board is now mandatory on every card that has a Board field.
+- The grade label is 'CGPA / %' for degree cards and 'Percentage / %' for school cards. Edu cards stack to one column at 480px or narrower.
+- School cards list years from the current year downward.
+- Validation messages name the exact missing field.
+- Fresher skips all experience validation on the final submit, so hidden experience cards no longer trigger year prompts.
+- The CSV export headers use the new card titles.
+
+
+### Job share
+- Share on job cards, dashboard rows and job detail opens a 'Share this job' modal (action jb-share in jobs.js) with WhatsApp, Facebook, X, LinkedIn and Email icons plus Copy link.
+
+- Removed 'Skip for now' from the Add photo block on the Details step.
+
+- Fixed: share-modal classes renamed .jb-shr* because .jb-sh is the section-heading class (it broke 'Recommended jobs for you' on mobile).
+
+### Job module logic fixes
+- Apply opens a confirm modal (resume, contact, experience-mismatch and low-profile warnings). Applications can be withdrawn.
+- Guests see Save; Save/Apply as a guest resumes automatically after sign-in (sessionStorage pl_jb_pending, handled in /job/:id).
+- Contact details on the job page require sign-in.
+- Search: location words match in the keyword box, abbreviations (MR, QA, QC, RA, PV, HR...) expand, short words match whole words only.
+- New pages: #/my-applications (status stepper Applied > Viewed > Shortlisted > Interview, simulated in demo) and #/saved-jobs; dashboard KPIs and View all link to them.
+- Back link returns to the page the job was opened from (PL.state.jbFrom).
+- Applicants count includes the user's own application; Preferences tab uses saved preferences; recommendations boost preferred locations; 'Send me jobs like these' saves an alert in profile.alerts.
+- Mobile audit at 360px and 390px across all phase-1 screens: no horizontal overflow.
+
+### Demo candidate
+- Demo candidate u1 is now Mohit Bhati (email stays u1@demo.pharmalinkin.example) and is seeded as already onboarded (level, DOB, 10th/12th/Graduation, resume), so sign-in goes straight to #/job-search. Old saved browser data is migrated automatically on load. To test onboarding, register a new account.

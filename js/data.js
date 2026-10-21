@@ -37,6 +37,7 @@
   PL.deptText = deptText;
   const BENEFITS = ['Health insurance', 'Performance incentives', 'Provident fund', 'Learning & certification support', 'Annual bonus', 'Travel allowance'];
 
+  const demoProfile = p => ({ onboarded: true, level: 'Experienced', dob: '1996-05-14', resumeFile: p.resume ? p.resume.name : '', education: [{ id: 'e0', level: '10th', degree: 'High School (10th)', board: 'CBSE', institute: 'Demo Public School, Mumbai', year: '2012', grade: '85', current: false }, { id: 'e00', level: '12th', degree: 'Intermediate (12th) (Science)', board: 'CBSE', institute: 'Demo Junior College, Mumbai', year: '2014', grade: '80', current: false }, { id: 'e1', level: 'Graduation', degree: 'B.Pharm', board: '', institute: 'Demo College of Pharmacy, Mumbai', year: '2022', grade: '8.2', current: false }] });
   function seed() {
     const s = { version: VERSION, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false }, categories: PL.CATEGORIES.slice(), templates: [
       { id: 'tpl1', name: 'Application received', subject: 'We received your application', body: 'Hi {{name}}, your application for {{job}} has been received.' },
@@ -67,7 +68,7 @@
         preferences: { roles: prefRoles, locations: [CITY[city][0]], salary: '₹6+ LPA', jobType: 'Full-time' }, privacy: { visibility: 'Public', showEmail: false, showPhone: false },
         resume: exp > 0 ? { name: name.split(' ')[0] + '_' + name.split(' ').pop() + '_Resume.pdf', type: 'PDF', size: 180000 + exp * 9000, visibility: 'Recruiters only', uploadedAt: ago(30) } : null }, ...extra });
     s.users = [
-      cand('u1', 'Aarav Mehta', 'M', 'Medical Representative | Oncology & Cardiology | 4 yrs field experience', 'Medical Representative', 'Zorvia Healthcare', 'B.Pharm', 4, ['Product knowledge', 'Territory management', 'KOL engagement', 'CRM tools', 'Oncology'], 200, ['Medical Representative', 'Area Sales Manager'], [{ id: 'e1', degree: 'B.Pharm', institute: 'Demo College of Pharmacy, Mumbai', year: '2022' }]),
+      cand('u1', 'Mohit Bhati', 'M', 'Medical Representative | Oncology & Cardiology | 4 yrs field experience', 'Medical Representative', 'Zorvia Healthcare', 'B.Pharm', 4, ['Product knowledge', 'Territory management', 'KOL engagement', 'CRM tools', 'Oncology'], 200, ['Medical Representative', 'Area Sales Manager'], [{ id: 'e1', degree: 'B.Pharm', institute: 'Demo College of Pharmacy, Mumbai', year: '2022' }]),
       cand('u2', 'Sneha Kulkarni', 'P', 'Regulatory Affairs Specialist | CTD & eCTD dossiers', 'Regulatory Affairs Specialist', 'Lumina Pharma', 'M.Pharm', 5, ['CTD / eCTD', 'Dossier review', 'Regulatory guidelines'], 180, ['Regulatory Affairs'], [{ id: 'e1', degree: 'M.Pharm (Pharmaceutics)', institute: 'Demo Institute of Pharmaceutical Sciences', year: '2020' }]),
       cand('u3', 'Dr. Imran Sheikh', 'H', 'Clinical Research Physician | Phase II–III oncology trials', 'Clinical Research Physician', 'Zenith Clinical Research', 'MBBS', 8, ['ICH-GCP', 'Protocol review', 'Safety monitoring'], 170, ['Clinical Research', 'Medical Affairs'], [{ id: 'e1', degree: 'MBBS', institute: 'Demo Medical College', year: '2015' }]),
       cand('u4', 'Ananya Reddy', 'H', 'QA Executive | GMP & documentation', 'QA Executive', 'Praxon Labs', 'B.Pharm', 3, ['GMP', 'CAPA', 'Documentation'], 150, ['Quality Assurance', 'Quality Control'], [{ id: 'e1', degree: 'B.Pharm', institute: 'Demo College of Pharmacy, Hyderabad', year: '2021' }]),
@@ -199,14 +200,14 @@
     const cid = (a, b) => ['conv', a, b].sort().join('_');
     const M = (id, a, b, text, d, read = true) => ({ id, conversationId: cid(a, b), senderId: a, recipientId: b, content: text, createdAt: ago(d.d || d, d.h || 0), read });
     s.messages = [
-      M('m1', 'r1', 'u1', 'Hi Aarav, thanks for applying to the Medical Representative – Oncology role. We would like to schedule a quick call.', 5), M('m2', 'u1', 'r1', 'Thank you Priya! I am available this week after 4 PM.', 5), M('m3', 'r1', 'u1', 'Great. We have scheduled an interview for you – please check your applications page.', { d: 0, h: 5 }, false),
-      M('m4', 'u2', 'u1', 'Hey Aarav, are you attending the Mumbai pharma meetup next week?', 2), M('m5', 'u1', 'u2', 'Planning to – will confirm tomorrow.', 2),
+      M('m1', 'r1', 'u1', 'Hi Mohit, thanks for applying to the Medical Representative – Oncology role. We would like to schedule a quick call.', 5), M('m2', 'u1', 'r1', 'Thank you Priya! I am available this week after 4 PM.', 5), M('m3', 'r1', 'u1', 'Great. We have scheduled an interview for you – please check your applications page.', { d: 0, h: 5 }, false),
+      M('m4', 'u2', 'u1', 'Hey Mohit, are you attending the Mumbai pharma meetup next week?', 2), M('m5', 'u1', 'u2', 'Planning to – will confirm tomorrow.', 2),
       M('m6', 'r1', 'u2', 'Hi Sneha, we have your application for Regulatory Affairs Specialist under review.', 6)
     ];
     const Nf = (id, userId, type, title, message, link, d, read = false) => ({ id, userId, type, title, message, link, relatedEntityId: '', read, createdAt: ago(d.d || d, d.h || 0) });
     s.notifications = [
       Nf('nt1', 'u1', 'connection', 'New connection request', 'Dr. Imran Sheikh wants to connect with you.', '/app/network', { d: 0, h: 2 }), Nf('nt2', 'u1', 'interview', 'Interview scheduled', 'Medicura Pharma scheduled an interview for Medical Representative – Oncology.', '/app/applications/a1', { d: 0, h: 5 }), Nf('nt3', 'u1', 'message', 'New message from Priya Nair', 'Great. We have scheduled an interview for you…', '/app/messages?c=' + cid('r1', 'u1'), { d: 0, h: 5 }), Nf('nt4', 'u1', 'status', 'Application update', 'Your application at Novacare Healthcare is now Under Review.', '/app/applications/a14', 1, true),
-      Nf('nt5', 'r1', 'application', 'New applicant', 'Aarav Mehta applied for Medical Representative – Oncology.', '/employer/applicants/a1', 6, true), Nf('nt6', 'r1', 'job', 'Job submitted', 'Area Sales Manager – Cardiology is pending admin approval.', '/employer/jobs', 1),
+      Nf('nt5', 'r1', 'application', 'New applicant', 'Mohit Bhati applied for Medical Representative – Oncology.', '/employer/applicants/a1', 6, true), Nf('nt6', 'r1', 'job', 'Job submitted', 'Area Sales Manager – Cardiology is pending admin approval.', '/employer/jobs', 1),
       Nf('nt7', 'a1', 'campaign', 'Campaign approved', 'Clinical Research Certification Webinar Series is now Active.', '/advertiser/campaigns/k1', 10, true), Nf('nt8', 'a1', 'campaign', 'Campaign pending approval', 'Pharmacovigilance Career Webinar is waiting for review.', '/advertiser/campaigns/k4', 1),
       Nf('nt9', 'adm1', 'job', 'Jobs awaiting approval', '3 jobs are pending moderation.', '/admin/jobs', 1), Nf('nt10', 'adm1', 'moderation', 'New content report', 'A post was reported for unverified claims.', '/admin/moderation', 2), Nf('nt11', 'adm1', 'verification', 'Employer verification pending', 'CureWell Pharmaceuticals and BioNova Labs await review.', '/admin/companies', 3)
     ];
@@ -254,6 +255,7 @@
     s.follows = { u1: { users: ['u2', 'r1'], companies: ['c1', 'c4'] } };
     s.hiddenAds = {}; s.savedCandidates = { r1: ['u2', 'u10'] }; s.unlocked = { r1: [] };
     s.signedUp = {};
+    s.users.forEach(x => { if (x.id === 'u1') Object.assign(x.profile, demoProfile(x.profile)); });
     return s;
   }
   PL.seed = seed;
@@ -264,7 +266,7 @@
     load() {
       let data = null;
       try { const raw = localStorage.getItem(KEY); if (raw) { data = JSON.parse(raw); if (!data || data.version !== VERSION || !Array.isArray(data.users) || !Array.isArray(data.jobs)) data = null; } } catch (e) { data = null; }
-      this.s = data || seed();
+      this.s = data || seed(); this.s.users.forEach(x => { if (x.id === 'u1' && x.name === 'Aarav Mehta') { x.name = 'Mohit Bhati'; Object.assign(x.profile, demoProfile(x.profile)); } });
       this.save();
       return this.s;
     },

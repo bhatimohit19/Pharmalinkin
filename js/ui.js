@@ -232,7 +232,7 @@
   const url = path => location.href.split('#')[0] + '#' + path;
   const hashtags = s => String(s || '').split(/[\s,]+/).map(x => x.replace(/^#/, '').replace(/[^\w]/g, '')).filter(Boolean);
   const split = s => String(s || '').split(/[,\n]/).map(x => x.trim()).filter(Boolean);
-  const csv = (name, rows) => { const e = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; const blob = new Blob([rows.map(r => r.map(e).join(',')).join('\r\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
+  const csv = (name, rows) => { const e = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; const blob = new Blob(['\ufeff' + rows.map(r => r.map(e).join(',')).join('\r\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500); };
 
   /* ---- multi-step form: grouped fieldsets + progress bar ---- */
   function stepForm({ attrs = '', steps, submit = 'Submit', before = '', extra = '', free = false }) {

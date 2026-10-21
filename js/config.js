@@ -4,7 +4,7 @@
   PL.config = {
     phase: 'onboarding',
     employerEnabled: false, // set true to re-open employer registration and workspace
-    allowed: [/^\/$/, /^\/login$/, /^\/register$/, /^\/verify-account$/, /^\/registration-complete$/, /^\/forgot-password$/, /^\/reset-password$/, /^\/onboarding(\/done)?$/, /^\/employer\/(onboarding|dashboard|company|jobs|jobs\/new|jobs\/[\w-]+\/edit|applicants|applicants\/[\w-]+|interviews)$/, /^\/companies\/[\w-]+$/, /^\/page\/[\w-]+$/]
+    allowed: [/^\/$/, /^\/login$/, /^\/register$/, /^\/verify-account$/, /^\/registration-complete$/, /^\/forgot-password$/, /^\/forgot-username$/, /^\/job-search$/, /^\/dashboard$/, /^\/my-applications$/, /^\/saved-jobs$/, /^\/job-results$/, /^\/job\/[\w-]+$/, /^\/reset-password$/, /^\/onboarding(\/done)?$/, /^\/employer\/(onboarding|dashboard|company|jobs|jobs\/new|jobs\/[\w-]+\/edit|applicants|applicants\/[\w-]+|interviews)$/, /^\/companies\/[\w-]+$/, /^\/page\/[\w-]+$/]
   };
   PL.onboardingOnly = () => PL.config.phase === 'onboarding';
   PL.employerOn = () => !PL.onboardingOnly() || PL.config.employerEnabled;

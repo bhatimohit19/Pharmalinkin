@@ -28,7 +28,7 @@
     setSession(id, remember) { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); (remember ? localStorage : sessionStorage).setItem('pl_session', id); }); },
     logout() { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); }); },
     roleLabel: r => ROLE_LABEL[r] || r,
-    homeFor(u) { if (u && u.role === 'recruiter' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/employer/dashboard' : '/employer/onboarding'; if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/onboarding/done' : '/onboarding'; return !u ? '/' : { candidate: '/app/dashboard', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
+    homeFor(u) { if (u && u.role === 'recruiter' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/employer/dashboard' : '/employer/onboarding'; if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/job-search' : '/onboarding'; return !u ? '/' : { candidate: '/app/dashboard', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
     requireLogin(next, msg = 'Please sign in to continue.') { safe(() => sessionStorage.setItem(NEXT_KEY, next || '')); ui().toast(msg, 'info'); PL.go('/login'); },
     takeNext() { const n = safe(() => sessionStorage.getItem(NEXT_KEY)); safe(() => sessionStorage.removeItem(NEXT_KEY)); return n; },
     hasNext() { return !!safe(() => sessionStorage.getItem(NEXT_KEY)); },
@@ -36,7 +36,7 @@
   };
 
   const demoAccounts = [
-    { role: 'Candidate', email: 'u1@demo.pharmalinkin.example', name: 'Aarav Mehta', icon: 'user', desc: 'Jobs, feed, applications' },
+    { role: 'Candidate', email: 'u1@demo.pharmalinkin.example', name: 'Mohit Bhati', icon: 'user', desc: 'Jobs, feed, applications' },
     { role: 'Recruiter / Employer', email: 'r1@demo.pharmalinkin.example', name: 'Priya Nair', icon: 'briefcase', desc: 'Medicura Pharma (Growth plan)' },
     { role: 'Advertiser', email: 'a1@demo.pharmalinkin.example', name: 'Pooja Shah', icon: 'megaphone', desc: 'Praxis Medical Education' },
     { role: 'Super Admin', email: 'admin@demo.pharmalinkin.example', name: 'Platform Admin', icon: 'shield', desc: 'Moderation & reports' }
@@ -60,10 +60,10 @@
       <form data-form="login" novalidate class="mt"><div id="login-msg"></div>
       ${ui().field({ name: 'email', label: 'Email address', type: 'email', required: true, autocomplete: 'username', placeholder: 'you@company.com' })}
       ${ui().field({ name: 'password', label: 'Password', type: 'password', required: true })}
-      <div class="row between"><label class="check"><input type="checkbox" name="remember"> Remember me</label><a href="#/forgot-password">Forgot password?</a></div>
+      <div class="row between"><label class="check"><input type="checkbox" name="remember"> Remember me</label><span class="fp-links"><a href="#/forgot-username">Forgot username?</a><a href="#/forgot-password">Forgot password?</a></span></div>
       <button class="btn btn-block mt" type="submit">Sign in</button></form>
       <div class="divider"></div><p class="small muted center" style="text-align:center">Or continue with <b>(demo-only, not connected)</b></p>
-      <div class="row nowrap"><button class="btn btn-secondary btn-block" data-action="social-demo" data-p="Google">Google</button><button class="btn btn-secondary btn-block" data-action="social-demo" data-p="Microsoft">Microsoft</button></div>
+      <div class="row nowrap"><button class="btn btn-secondary btn-block" data-action="social-demo" data-p="Google">${PL.LOGO.google} Google</button><button class="btn btn-secondary btn-block" data-action="social-demo" data-p="LinkedIn">${PL.LOGO.linkedin} LinkedIn</button></div>
       <p class="small center mt" style="text-align:center">New here? <a href="#/register">Create an account</a></p></div>${demoPanel()}</div></div>`;
   }, { layout: 'auth', title: 'Sign in', guestOnly: true });
   PL.act('social-demo', d => ui().toast(d.p + ' sign-in is a demo-only placeholder. Use the demo access panel instead.', 'info'));
