@@ -27,6 +27,9 @@
 }
 @media (max-width:720px){
   body{font-size:14.5px}
+  .mobile-backbar{position:sticky;top:0;z-index:49;display:flex;align-items:center;min-height:46px;padding:4px 12px;background:#fff;border-bottom:1px solid var(--border)}
+  .profile-topbar+.mobile-backbar{top:52px}
+  .site-header+.mobile-backbar,.topnav+.mobile-backbar,.jb-hd+.mobile-backbar{top:60px}
   h1,.hero h1{font-size:1.75rem}
   .container{padding:0 14px}
   .app-grid{grid-template-columns:minmax(0,1fr)}

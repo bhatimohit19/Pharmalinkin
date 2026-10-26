@@ -217,6 +217,17 @@
     if (v.q) list = list.filter(x => (x.name + ' ' + (x.profile.title || '') + ' ' + (x.profile.skills || []).join(' ')).toLowerCase().includes(v.q.toLowerCase()));
     if (v.loc) list = list.filter(x => (x.location || '').toLowerCase().includes(v.loc.toLowerCase()));
     const pg = ui().paginate(list, v.page, 8);
+    PL.state.candidateSearchImpressions = PL.state.candidateSearchImpressions || {};
+    let recordedSearchImpression = false;
+    pg.items.forEach(candidate => {
+      const key = u.id + ':' + candidate.id;
+      if (!PL.state.candidateSearchImpressions[key]) {
+        candidate.profile.searchAppearances = (Number(candidate.profile.searchAppearances) || 0) + 1;
+        PL.state.candidateSearchImpressions[key] = true;
+        recordedSearchImpression = true;
+      }
+    });
+    if (recordedSearchImpression) PL.store.save();
     return `${ui().pageHead('Find candidates', '', `Contact unlocks used: ${us.resumes} / ${us.plan.limits.resumes}`)}<div class="card pad row mb">${ui().filterCtl('cands', { name: 'q', type: 'search', label: 'Keyword or skill', placeholder: 'e.g. HPLC, regulatory' })}${ui().filterCtl('cands', { name: 'loc', type: 'search', label: 'Location', placeholder: 'City' })}</div>
       <div class="stack">${pg.items.map(x => `<div class="card pad row between nowrap"><div class="row nowrap">${ui().avatar(x, 48)}<div><a class="bold" href="#/app/profile/${x.id}">${E(x.name)}</a><div class="small muted">${E(x.profile.headline || x.profile.title || '')}</div><div class="xs muted">${E(x.location || '')} · ${x.profile.experienceYears || 0} yrs</div>${unl.includes(x.id) ? `<div class="xs">${E(x.email)} · ${E(x.phone || '')}</div>` : ''}</div></div><div class="row">${unl.includes(x.id) ? '<span class="badge b-green">Contact unlocked</span>' : `<button class="btn btn-secondary btn-sm" data-action="unlock" data-id="${x.id}">Unlock contact</button>`}<button class="btn btn-ghost btn-sm" data-action="save-cand" data-id="${x.id}">${sv.includes(x.id) ? 'Saved' : 'Save'}</button><a class="btn btn-sm" href="#/employer/messages?u=${x.id}">Message</a></div></div>`).join('') || ui().empty('user', 'No candidates found', 'Try a different keyword.')}</div>${ui().pager({ total: list.length, page: pg.page, per: 8, scope: 'cands' })}`;
   }, 'Find candidates');

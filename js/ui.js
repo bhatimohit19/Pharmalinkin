@@ -120,7 +120,7 @@
     const aria = ` aria-describedby="${id}_e${f.help ? ' ' + id + '_h' : ''}"`;
     if (t === 'select') return wrap(`${label}<select id="${id}" name="${f.name}"${req}${attrs}${aria}>${f.placeholder !== undefined ? `<option value="">${esc(f.placeholder || 'Select…')}</option>` : ''}${opts.map(o => `<option value="${esc(o.v)}" ${String(o.v) === String(f.value) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`);
     if (t === 'textarea') return wrap(`${label}<textarea id="${id}" name="${f.name}" rows="${f.rows || 4}" placeholder="${esc(f.placeholder || '')}"${req}${attrs}${aria}>${esc(f.value || '')}</textarea>`);
-    if (t === 'checkbox') return wrap(`<label class="check"><input type="checkbox" id="${id}" name="${f.name}" ${f.value ? 'checked' : ''}${req}${aria}><span>${f.html || esc(f.label)}</span></label>`);
+    if (t === 'checkbox') return wrap(`<label class="check"><input type="checkbox" id="${id}" name="${f.name}" ${f.value ? 'checked' : ''}${req}${attrs}${aria}><span>${f.html || esc(f.label)}</span></label>`);
     if (t === 'radio') return wrap(`<span class="label" id="${id}_l">${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</span><div class="row" role="radiogroup" aria-labelledby="${id}_l">${opts.map((o, i) => `<label class="check"><input type="radio" name="${f.name}" value="${esc(o.v)}" ${String(o.v) === String(f.value) ? 'checked' : ''} ${f.required ? 'required' : ''}> ${esc(o.l)}</label>`).join('')}</div>`);
     if (t === 'checkboxes') { const v = f.value || []; return wrap(`<span class="label">${esc(f.label)}</span><div class="row">${opts.map(o => `<label class="check"><input type="checkbox" name="${f.name}" value="${esc(o.v)}" ${v.includes(o.v) ? 'checked' : ''}> ${esc(o.l)}</label>`).join('')}</div>`); }
     if (t === 'password') return wrap(`${label}<div class="pw"><input id="${id}" type="password" name="${f.name}" autocomplete="${f.autocomplete || 'current-password'}" placeholder="${esc(f.placeholder || '')}"${req}${attrs}${aria}><button type="button" class="icon-btn" data-action="toggle-pw" aria-label="Show password">${icon('eye')}</button></div>`);
@@ -287,8 +287,11 @@
       const fn = PL.forms[f.dataset.form]; if (!fn) return;
       if (f.dataset.steps) {
         const fs = [...f.querySelectorAll('.fstep')], cur = +f.dataset.cur || 0;
-        if (!f.dataset.free && !(e.submitter && e.submitter.dataset.all) && cur < fs.length - 1) { if (validate(fs[cur])) { stepShow(f, cur + 1); window.scrollTo({ top: 0 }); const nf = fs[cur + 1].querySelector('input,select,textarea'); if (nf) nf.focus(); } return; }
-        for (let k = 0; k < fs.length; k++) if (!validate(fs[k])) { stepShow(f, k); return; }
+        if (f.dataset.editSection) { if (!validate(fs[cur])) return; }
+        else {
+          if (!f.dataset.free && !(e.submitter && e.submitter.dataset.all) && cur < fs.length - 1) { if (validate(fs[cur])) { stepShow(f, cur + 1); window.scrollTo({ top: 0 }); const nf = fs[cur + 1].querySelector('input,select,textarea'); if (nf) nf.focus(); } return; }
+          for (let k = 0; k < fs.length; k++) if (!validate(fs[k])) { stepShow(f, k); return; }
+        }
       }
       try { await fn(f, e); } catch (err) { console.error(err); toast('Something went wrong: ' + err.message, 'err'); }
     });

@@ -46,7 +46,21 @@
       if (fresh) { window.scrollTo(0, 0); const mn = document.getElementById('main'); if (mn) mn.focus({ preventScroll: true }); }
       else { window.scrollTo(0, y); const fid = opts.focusId || (active && active.id); if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); if (active && active.s != null && el.setSelectionRange && /text|search/.test(el.type)) try { el.setSelectionRange(active.s, active.e); } catch (e) { } } } }
     },
-    start() { window.addEventListener('hashchange', () => this.resolve()); this.resolve(); }
+    start() {
+      let navigationTimer;
+      const onNavigation = () => {
+        window.clearTimeout(navigationTimer);
+        navigationTimer = window.setTimeout(() => this.resolve(), 0);
+      };
+      window.addEventListener('hashchange', event => {
+        const previousHash = new URL(event.oldURL).hash.slice(1);
+        const previousPath = (previousHash || '/').split('?')[0];
+        PL.state.mobilePreviousPath = previousPath[0] === '/' ? previousPath : '/' + previousPath;
+        onNavigation();
+      });
+      window.addEventListener('popstate', onNavigation);
+      this.resolve();
+    }
   };
   PL.go = p => { if (location.hash === '#' + p) PL.router.resolve(); else location.hash = '#' + p; };
   PL.rerender = o => PL.router.resolve(Object.assign({ rerender: true }, o));

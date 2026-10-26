@@ -8,6 +8,11 @@
   const msgPath = uid => (me().role === 'recruiter' ? '/employer/messages' : '/app/messages') + '?u=' + uid;
   PL.msgPath = msgPath;
   const FINAL = ['Hired', 'Rejected', 'Withdrawn'];
+  const monthInput = (value, end) => /^\d{4}-\d{2}$/.test(String(value || '')) ? value : /^\d{4}$/.test(String(value || '')) ? value + (end ? '-12' : '-01') : '';
+  const monthLabel = value => {
+    const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
+    return match ? new Date(+match[1], +match[2] - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : String(value || '');
+  };
 
   /* ---------- dashboard ---------- */
   R.add('/app/dashboard', () => {
@@ -27,7 +32,7 @@
   }, Object.assign({ title: 'Dashboard' }, CAND));
 
   /* ---------- profile ---------- */
-  const sect = (title, body, actions = '') => `<section class="card pad-lg"><div class="row between"><h3 style="margin:0">${title}</h3>${actions}</div><div class="mt-s">${body}</div></section>`;
+  const sect = (title, body, actions = '', id = '') => `<section class="card pad-lg" ${id ? `id="${id}"` : ''}><div class="row between"><h3 style="margin:0">${title}</h3>${actions}</div><div class="mt-s">${body}</div></section>`;
   const ctl = (own, action, data, label, ic = 'edit') => own ? `<button class="icon-btn" data-action="${action}" ${Object.entries(data).map(([k, v]) => `data-${k}="${E(v)}"`).join(' ')} aria-label="${label}">${I(ic, 16)}</button>` : '';
   function profilePage(ctx) {
     const viewer = me(), id = ctx.params.id || viewer.id, u = PL.q.user(id);
@@ -35,21 +40,122 @@
     const own = u.id === viewer.id, p = prof(u), priv = p.privacy || {};
     if (!own && priv.visibility === 'Private') return ui().empty('lock', 'This profile is private', 'The member has chosen not to share their profile.');
     if (!own && u.status !== 'Active') return ui().empty('ban', 'Profile unavailable', 'This account is not active.');
+    if (!own && viewer.role === 'recruiter') {
+      PL.state.profileViewSeen = PL.state.profileViewSeen || {};
+      const key = viewer.id + ':' + u.id;
+      if (!PL.state.profileViewSeen[key]) { p.views = (Number(p.views) || 0) + 1; PL.state.profileViewSeen[key] = true; PL.store.save(); }
+    }
     const status = own ? null : PL.q.connStatus(viewer.id, u.id), co = PL.q.companyOf(u);
     const showContact = own || (priv.showEmail && priv.showPhone) || (viewer.role === 'recruiter' && (db().unlocked[viewer.id] || []).includes(u.id)) || status === 'connected';
     const connBtn = own ? '' : status === 'connected' ? `<button class="btn btn-secondary" disabled>${I('usercheck', 16)} Connected</button>` : status === 'sent' ? `<button class="btn btn-secondary" data-action="conn-withdraw" data-id="${u.id}">Pending – withdraw</button>` : status === 'received' ? `<button class="btn" data-action="conn-accept" data-id="${u.id}">Accept request</button>` : `<button class="btn" data-action="conn-send" data-id="${u.id}">${I('userplus', 16)} Connect</button>`;
     const fol = !own && PL.q.follows(viewer.id).users.includes(u.id);
-    return `<div class="narrow stack" style="max-width:860px;margin:0 auto"><section class="card" style="overflow:hidden"><img alt="" src="${p.coverImg || ui().art(u.id + 'c', '', 1000, 200)}" style="width:100%;height:150px;object-fit:cover;display:block"><div class="pad-lg"><div class="row between start"><div style="margin-top:-62px;border:4px solid #fff;border-radius:50%;display:inline-block;background:#fff">${ui().avatar(u, 100)}</div><div class="row">${own ? `<button class="btn btn-secondary btn-sm" data-action="prof-photo">${I('image', 14)} Photo</button><button class="btn btn-secondary btn-sm" data-action="prof-basic">${I('edit', 14)} Edit profile</button>` : `${connBtn}<a class="btn btn-secondary" href="#${msgPath(u.id)}">${I('message', 16)} Message</a><button class="btn btn-ghost" data-action="follow-user" data-id="${u.id}">${fol ? 'Following' : 'Follow'}</button>${ui().menu([{ label: 'Report profile', action: 'report', icon: 'flag', data: { type: 'user', id: u.id } }], { label: 'More' })}${viewer.role === 'recruiter' && u.role === 'candidate' ? `<button class="btn btn-ghost btn-sm" data-action="save-cand" data-id="${u.id}">${I('bookmark', 14)} ${(db().savedCandidates[viewer.id] || []).includes(u.id) ? 'Saved' : 'Save candidate'}</button>` : ''}`}</div></div>
-        <h1 style="font-size:1.5rem;margin:8px 0 0">${E(u.name)} ${u.verified ? `<span class="verified" title="Verified">${I('shield', 16)}</span>` : ''}</h1><div>${E(p.headline || '')}</div><div class="small muted">${E(u.location || '')}${co ? ' · ' + E(co.name) : ''}</div>${showContact ? `<div class="small mt-s">${I('mail', 14)} ${E(u.email)} · ${I('phone', 14)} ${E(u.phone || '—')}</div>` : (u.role === 'candidate' ? '<div class="xs muted mt-s">Contact details are hidden by the member\'s privacy settings.</div>' : '')}</div></section>
-      ${sect('About', `<p style="margin:0;white-space:pre-line">${E(p.about) || '<span class="muted">No summary added.</span>'}</p>`)}
-      ${u.role === 'candidate' ? `${sect('Experience', (p.experience || []).map(x => `<div class="row nowrap start" style="padding:8px 0;border-top:1px solid var(--border)"><div class="grow"><div class="bold">${E(x.title)}</div><div class="small">${E(x.company)} · ${E(x.from)} – ${E(x.to)}</div><div class="small muted">${E(x.desc || '')}</div></div>${own ? ctl(true, 'prof-edit', { sec: 'exp', id: x.id }, 'Edit experience') + ctl(true, 'prof-del', { sec: 'exp', id: x.id }, 'Delete experience', 'trash') : ''}</div>`).join('') || '<p class="muted">No experience added.</p>', own ? `<button class="btn btn-secondary btn-sm" data-action="prof-add" data-sec="exp">${I('plus', 14)} Add</button>` : '')}
-      ${sect('Education', (p.education || []).map(x => `<div class="row nowrap start" style="padding:8px 0;border-top:1px solid var(--border)"><div class="grow"><div class="bold">${E(x.degree)}</div><div class="small muted">${E(x.institute)} · ${E(x.year)}</div></div>${own ? ctl(true, 'prof-edit', { sec: 'edu', id: x.id }, 'Edit education') + ctl(true, 'prof-del', { sec: 'edu', id: x.id }, 'Delete education', 'trash') : ''}</div>`).join('') || '<p class="muted">No education added.</p>', own ? `<button class="btn btn-secondary btn-sm" data-action="prof-add" data-sec="edu">${I('plus', 14)} Add</button>` : '')}
-      ${sect('Skills', `<div class="chips">${(p.skills || []).map(s => `<span class="tag">${E(s)}</span>`).join('') || '<span class="muted">No skills added.</span>'}</div>`, ctl(own, 'prof-list', { sec: 'skills' }, 'Edit skills'))}
-      ${sect('Certifications', (p.certifications || []).map(x => `<div class="row nowrap" style="padding:6px 0"><div class="grow"><div class="bold">${E(x.name)}</div><div class="small muted">${E(x.issuer)} · ${E(x.year)}</div></div>${own ? ctl(true, 'prof-del', { sec: 'cert', id: x.id }, 'Delete certification', 'trash') : ''}</div>`).join('') || '<p class="muted">No certifications added.</p>', own ? `<button class="btn btn-secondary btn-sm" data-action="prof-add" data-sec="cert">${I('plus', 14)} Add</button>` : '')}
-      ${sect('Languages', `<div class="chips">${(p.languages || []).map(s => `<span class="tag">${E(s)}</span>`).join('') || '<span class="muted">None</span>'}</div>`, ctl(own, 'prof-list', { sec: 'languages' }, 'Edit languages'))}
-      ${own ? sect('Career preferences & privacy', `<dl class="kv"><dt>Preferred roles</dt><dd>${E(((p.preferences || {}).roles || []).join(', ') || '—')}</dd><dt>Locations</dt><dd>${E(((p.preferences || {}).locations || []).join(', ') || '—')}</dd><dt>Expected salary</dt><dd>${E((p.preferences || {}).salary || '—')}</dd><dt>Visibility</dt><dd>${E(priv.visibility || 'Public')}</dd><dt>Email shown</dt><dd>${priv.showEmail ? 'Yes' : 'No'}</dd><dt>Phone shown</dt><dd>${priv.showPhone ? 'Yes' : 'No'}</dd></dl>`, `<button class="btn btn-secondary btn-sm" data-action="prof-prefs">${I('edit', 14)} Edit</button>`) : ''}` : ''}</div>`;
+    const skills = p.skills || [], roles = (p.preferences && p.preferences.roles) || [];
+    const posts = db().posts.filter(x => x.authorId === u.id && !x.removed && (own || x.visibility === 'Public')).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
+    const apps = PL.q.appsOf(u.id).slice().sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)).slice(0, 3);
+    const activity = posts.map(x => `<article class="li-activity"><b>Shared an update</b><p>${E(x.content)}</p><span class="xs muted">${F().ago(x.createdAt)}</span></article>`).concat(apps.map(x => {
+      const j = PL.q.job(x.jobId);
+      return j ? `<article class="li-activity"><b>Applied for a job</b><p><a href="#/job/${j.id}">${E(j.title)}</a> at ${E((PL.q.company(j.companyId) || {}).name || '')}</p><span class="xs muted">${F().ago(x.appliedAt)}</span></article>` : '';
+    }).filter(Boolean)).slice(0, 4);
+    const preferenceWords = [...skills, ...roles].map(x => String(x).toLowerCase());
+    const recJobs = PL.q.publicJobs().map(j => {
+      const searchable = [j.title, j.department, ...(j.skills || [])].join(' ').toLowerCase();
+      return { job: j, score: preferenceWords.filter(w => w.length > 2 && searchable.includes(w)).length };
+    }).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.job);
+    const followed = PL.q.follows(u.id).companies;
+    const recCompanies = db().companies.filter(x => !followed.includes(x.id)).map(c => {
+      const jobs = PL.q.publicJobs().filter(j => j.companyId === c.id);
+      return { company: c, jobs, score: jobs.filter(j => roles.includes(j.department)).length };
+    }).sort((a, b) => b.score - a.score || b.jobs.length - a.jobs.length).slice(0, 3);
+    const experience = (p.experience || []).map(x => `<article class="li-entry">${ui().logo(x.company || 'Company', 42)}<div class="grow"><b>${E(x.title || 'Professional experience')}</b><div>${E(x.company || '')}</div><div class="small muted">${E([x.from, x.to || 'Present'].filter(Boolean).join(' – '))}</div>${x.desc ? `<p>${E(x.desc)}</p>` : ''}</div>${own ? (u.role === 'candidate' ? `<a class="icon-btn" href="#/app/profile/experience/${E(x.id)}?return=profile" aria-label="Edit experience">${I('edit', 16)}</a>` : ctl(true, 'prof-edit', { sec: 'exp', id: x.id }, 'Edit experience')) + ctl(true, 'prof-del', { sec: 'exp', id: x.id }, 'Delete experience', 'trash') : ''}</article>`).join('');
+    const education = (p.education || []).map(x => `<article class="li-entry">${I('grad', 26)}<div class="grow"><b>${E(x.degree || x.level || 'Education')}</b><div>${E(x.institute || '')}</div><div class="small muted">${E(x.year || (x.current ? 'Currently pursuing' : ''))}</div></div>${own ? (u.role === 'candidate' ? `<a class="icon-btn" href="#/onboarding?edit=education" aria-label="Edit education">${I('edit', 16)}</a>` : ctl(true, 'prof-edit', { sec: 'edu', id: x.id }, 'Edit education')) + ctl(true, 'prof-del', { sec: 'edu', id: x.id }, 'Delete education', 'trash') : ''}</article>`).join('');
+    const analytics = own ? `<section class="li-card li-analytics"><h2>Analytics</h2><p class="small muted">Your activity in this demo</p><div class="li-stats"><div><b>${Number(p.views) || 0}</b><span>Profile views</span></div><div><b>${PL.q.appsOf(u.id).length}</b><span>Applications</span></div><div><b>${PL.q.saved(u.id).length}</b><span>Saved jobs</span></div></div></section>` : '';
+    if (own && u.role === 'candidate') {
+      const preview = !!ctx.query.preview, completion = PL.q.completion(u);
+      const acceptedConnections = db().connections.filter(x => x.status === 'accepted' && (x.requesterId === u.id || x.recipientId === u.id)).length;
+      const profileTitle = p.title || (p.headline || '').split('|')[0] || 'Add your professional title';
+      const rawHeadline = String(p.headline || '');
+      const profileHeadline = rawHeadline.toLowerCase().startsWith((profileTitle + ' |').toLowerCase()) ? rawHeadline.slice(profileTitle.length + 3) : rawHeadline;
+      const expRows = (p.experience || []).slice(0, preview ? 2 : 1).map(x => `<article class="cp-entry"><span class="cp-entry-icon">${I('briefcase', 18)}</span><div class="cp-entry-copy"><b>${E(x.title || 'Professional experience')}</b><span>${E(x.company || '')}${x.location ? ` · ${E(x.location)}` : ''}</span><small>${E([monthLabel(x.from), x.to === 'Present' || x.current ? 'Present' : monthLabel(x.to)].filter(Boolean).join(' – '))}</small>${x.desc ? `<p>${E(x.desc)}</p>` : ''}</div>${!preview ? `<div class="cp-entry-actions"><a href="#/app/profile/experience/${E(x.id)}?return=profile" class="cp-icon-link" aria-label="Edit experience">${I('edit', 15)}</a>${ctl(true, 'prof-del', { sec: 'exp', id: x.id }, 'Delete experience', 'trash')}</div>` : ''}</article>`).join('');
+      const eduRows = (p.education || []).map(x => `<article class="cp-entry"><span class="cp-entry-icon">${I('grad', 18)}</span><div class="cp-entry-copy"><b>${E(x.degree || x.level || 'Education')}</b><span>${E(x.institute || '')}</span><small>${E(x.year || (x.current ? 'Currently pursuing' : ''))}</small></div>${!preview ? `<div class="cp-entry-actions"><a href="#/onboarding?edit=education" class="cp-icon-link" aria-label="Edit education">${I('edit', 15)}</a>${ctl(true, 'prof-del', { sec: 'edu', id: x.id }, 'Delete education', 'trash')}</div>` : ''}</article>`).join('');
+      const skillTags = (p.skills || []).map(x => `<span>${E(x)}</span>`).join('');
+      const interestTags = [...roles, ...(p.languages || []), ...(p.certifications || []).map(x => x.name)].filter(Boolean).map(x => `<span>${E(x)}</span>`).join('');
+      const activityRows = activity.slice(0, 3).join('');
+      return `<div class="li-profile candidate-profile-screen">
+        <section class="cp-card cp-hero ${preview ? 'cp-public-hero' : 'cp-private-hero'}"><div class="cp-cover ${p.coverImg ? 'has-image' : ''}">${p.coverImg ? `<img src="${p.coverImg}" alt="">` : ''}${!preview ? `<button type="button" class="cp-cover-btn" data-action="prof-cover" aria-label="Change profile banner">${I('image', 15)} <span>Edit banner</span></button>` : ''}</div><div class="cp-hero-body"><div class="cp-identity"><div class="cp-avatar">${ui().avatar(u, 72)}${!preview ? `<button type="button" class="cp-photo-btn" data-action="prof-photo" aria-label="Change photo">${I('image', 15)}</button>` : ''}</div><div class="cp-identity-copy"><h1>${E(u.name)} ${u.verified ? `<span class="verified" title="Verified">${I('shield', 15)}</span>` : ''}</h1><p class="cp-title">${E(profileTitle)}</p>${profileHeadline ? `<p class="cp-headline">${E(profileHeadline)}</p>` : ''}<div class="cp-location">${I('pin', 14)} ${E(u.location || 'Add your location')}${p.company ? ` · ${E(p.company)}` : ''}</div></div></div>${preview ? `<div class="cp-hero-actions"><button type="button" class="btn btn-secondary btn-sm" data-action="profile-share">${I('share', 14)} Share profile</button></div>` : ''}</div></section>
+        ${preview ? `<div class="cp-preview-label">${I('eye', 14)} Public profile preview</div><nav class="cp-profile-tabs" aria-label="Profile sections"><a href="#profile-about">About</a><a href="#profile-experience">Experience</a><a href="#profile-education">Education</a><a href="#profile-skills">Skills</a></nav>` : `<section class="cp-card cp-completion-card"><div class="cp-completion-heading"><b>Profile Completion</b><strong>${completion.pct}%</strong></div>${ui().progress(completion.pct)}<p>Complete your profile to get more job matches</p><div class="cp-completion-actions"><a class="btn btn-secondary btn-sm" href="#/app/profile/completion">Complete Profile</a><a href="#/app/profile/analytics">${I('chart', 14)} Profile Analytics</a></div></section><section class="cp-card cp-section cp-inline-analytics"><div class="cp-section-head"><h2>Profile Analytics</h2><a href="#/app/profile/analytics">View all</a></div><div class="cp-analytics-grid"><div><b>${Number(p.views) || 0}</b><span>Profile Views</span></div><div><b>${Number(p.resumeDownloads) || 0}</b><span>Resume Downloads</span></div><div><b>${Number(p.searchAppearances) || 0}</b><span>Search Appearances</span></div></div><p class="cp-analytics-note">Browser-local prototype totals; demo profiles may include sample starting counts.</p></section>`}
+        <section class="cp-card cp-section" id="profile-about"><div class="cp-section-head"><h2>About</h2>${!preview ? `<a href="#/app/profile/edit" aria-label="Edit about">${I('edit', 15)}</a>` : ''}</div><p class="cp-about">${E(p.about || 'Add a short professional summary to introduce yourself.')}</p></section>
+        ${!preview ? `<div class="cp-ad-wrap"><span>Advertisement</span><a class="cp-promo" href="#/job-search"><span><b>Grow Your Career<br>with PharmaLinkIn</b><small>Get noticed by top recruiters</small><strong>Explore Now ${I('right', 14)}</strong></span><span class="cp-promo-art">${I('briefcase', 30)}</span></a></div>` : ''}
+        <section class="cp-card cp-section" id="profile-experience"><div class="cp-section-head"><h2>Experience</h2>${!preview ? `<div class="cp-section-actions"><a href="#/app/profile/experience/new?return=profile" aria-label="Add experience">${I('plus', 16)}</a><a href="#/app/profile/experience">View All</a></div>` : ''}</div>${expRows || '<p class="cp-empty">No experience added yet.</p>'}</section>
+        ${!preview ? `<section class="cp-card cp-section cp-resume-card"><div class="cp-section-head"><h2>Resume</h2><button type="button" class="cp-text-action" data-action="resume-upload">${I('upload', 15)} ${p.resume ? 'Update' : 'Upload'}</button></div>${p.resume ? `<div class="cp-resume-file">${I('file', 24)}<span><b>${E(p.resume.name)}</b><small>${E(p.resume.type || 'Resume')} · ${F().size(p.resume.size)} · Uploaded ${F().date(p.resume.uploadedAt)}</small></span></div><p class="cp-analytics-note">This prototype saves the file name and details locally; it does not store the file itself.</p>` : `<p class="cp-empty">No uploaded resume yet. Add a PDF or Word file to use for applications.</p>`}</section>` : ''}
+        <section class="cp-card cp-section" id="profile-education"><div class="cp-section-head"><h2>Education</h2>${!preview ? `<div class="cp-section-actions"><a href="#/onboarding?edit=education" aria-label="Add or edit education">${I('plus', 16)}</a></div>` : ''}</div>${eduRows || '<p class="cp-empty">No education added yet.</p>'}</section>
+        <section class="cp-card cp-section" id="profile-skills"><div class="cp-section-head"><h2>Skills</h2>${!preview ? `<a href="#/onboarding?edit=skills" aria-label="Edit skills">${I('edit', 15)}</a>` : ''}</div><div class="cp-skills">${skillTags || '<span class="cp-empty">Add your professional skills.</span>'}</div></section>
+        <section class="cp-card cp-section" id="profile-interests"><div class="cp-section-head"><h2>Interests</h2>${!preview ? `<a href="#/onboarding?edit=interests" aria-label="Edit interests">${I('edit', 15)}</a>` : ''}</div><div class="cp-skills">${interestTags || '<span class="cp-empty">Add career interests, languages, and certifications.</span>'}</div></section>
+        <section class="cp-card cp-section" id="profile-activity"><div class="cp-section-head"><h2>Activity</h2>${!preview ? `<a href="#/app/feed">See all</a>` : ''}</div>${activityRows || `<p class="cp-empty">${preview ? 'No recent activity yet.' : 'You have not shared any updates yet.'}</p>`}${!preview && !activityRows ? `<a class="cp-activity-cta" href="#/app/feed">${I('plus', 14)} Start a post</a>` : ''}</section>
+        <section class="cp-card cp-section"><div class="cp-section-head"><h2>Recommended Jobs</h2><a href="#/job-results">View All</a></div>${recJobs.slice(0, 2).map(j => `<a class="cp-job-row" href="#/job/${j.id}">${ui().logo(PL.q.company(j.companyId) || { name: 'Company' }, 38)}<span><b>${E(j.title)}</b><small>${E((PL.q.company(j.companyId) || {}).name || '')} · ${E(j.city)}</small></span>${I('right', 15)}</a>`).join('') || '<p class="cp-empty">No job recommendations yet.</p>'}</section>
+        <section class="cp-card cp-section"><div class="cp-section-head"><h2>Recommended Companies</h2><a href="#/job-search">Explore jobs</a></div>${recCompanies.slice(0, 2).map(x => `<a class="cp-job-row" href="#/companies/${x.company.id}">${ui().logo(x.company, 38)}<span><b>${E(x.company.name)}</b><small>${E(x.company.industry)} · ${x.jobs.length} open ${x.jobs.length === 1 ? 'role' : 'roles'}</small></span>${I('right', 15)}</a>`).join('') || '<p class="cp-empty">No company recommendations yet.</p>'}</section>
+      </div>`;
+    }
+    const actionControls = own ? `<button class="btn btn-secondary btn-sm" data-action="prof-basic">${I('edit', 14)} Edit profile</button>` : `${connBtn}<a class="btn btn-secondary btn-sm" href="#${msgPath(u.id)}">${I('message', 16)} Message</a><button class="btn btn-ghost btn-sm" data-action="follow-user" data-id="${u.id}">${fol ? 'Following' : 'Follow'}</button>${ui().menu([{ label: 'Report profile', action: 'report', icon: 'flag', data: { type: 'user', id: u.id } }], { label: 'More' })}${viewer.role === 'recruiter' && u.role === 'candidate' ? `<button class="btn btn-ghost btn-sm" data-action="save-cand" data-id="${u.id}">${I('bookmark', 14)} ${(db().savedCandidates[viewer.id] || []).includes(u.id) ? 'Saved' : 'Save candidate'}</button>` : ''}`;
+    return `<div class="li-profile">
+      <section class="li-card li-hero"><div class="li-cover"><img src="${p.coverImg || ui().art(u.id + 'c', '', 1200, 300)}" alt=""></div><div class="li-hero-body"><div class="li-hero-top"><div class="li-avatar">${ui().avatar(u, 92)}${own ? `<button type="button" class="li-photo-btn" data-action="prof-photo" aria-label="Change profile photo">${I('image', 16)}</button>` : ''}</div><div class="li-actions">${actionControls}</div></div>
+        <h1>${E(u.name)} ${u.verified ? `<span class="verified" title="Verified">${I('shield', 16)}</span>` : ''}</h1><p class="li-title">${E(p.title || (p.headline || '').split('|')[0] || '')}</p><p class="li-headline">${E(p.headline || '')}</p><div class="li-location">${E(u.location || '')}${co ? ' · ' + E(co.name) : ''}</div>${showContact ? `<div class="li-contact">${I('mail', 14)} ${E(u.email)}${u.phone ? ` <span>·</span> ${I('phone', 14)} ${E(u.phone)}` : ''}</div>` : (u.role === 'candidate' ? '<div class="xs muted mt-s">Contact details are hidden by the member’s privacy settings.</div>' : '')}
+        ${own ? `<div class="li-completion"><div class="row between small"><b>Profile completion</b><b>${PL.q.completion(u).pct}%</b></div>${ui().progress(PL.q.completion(u).pct)}<a href="#/onboarding">Complete your profile to get more job matches</a></div>` : ''}</div></section>
+      <div class="li-columns"><div class="li-main">
+        ${sect('About', `<p class="li-about">${E(p.about) || '<span class="muted">Add a short professional summary to introduce yourself.</span>'}</p>`, ctl(own, 'prof-basic', {}, 'Edit about'))}
+        ${sect('Experience', experience || '<p class="muted">No experience added yet.</p>', own ? u.role === 'candidate' ? `<a class="btn btn-secondary btn-sm" href="#/app/profile/experience/new?return=profile">${I('plus', 14)} Add experience</a>` : `<button class="btn btn-secondary btn-sm" data-action="prof-add" data-sec="exp">${I('plus', 14)} Add experience</button>` : '', 'profile-experience')}
+        ${sect('Education', education || '<p class="muted">No education added yet.</p>', own ? u.role === 'candidate' ? `<a class="btn btn-secondary btn-sm" href="#/onboarding?edit=education">${I('plus', 14)} Add education</a>` : `<button class="btn btn-secondary btn-sm" data-action="prof-add" data-sec="edu">${I('plus', 14)} Add education</button>` : '', 'profile-education')}
+        ${sect('Interests', `<div class="li-tags">${[...roles, ...skills, ...(p.languages || []), ...(p.certifications || []).map(x => x.name)].filter(Boolean).map(x => `<span>${E(x)}</span>`).join('') || '<span class="muted">Add skills, roles, and professional interests.</span>'}</div>`, own ? u.role === 'candidate' ? `<div class="li-edit-links"><a href="#/onboarding?edit=interests">${I('edit', 14)} Interests</a><a href="#/onboarding?edit=certifications">${I('edit', 14)} Certifications</a><a href="#/onboarding?edit=languages">${I('edit', 14)} Languages</a></div>` : ctl(true, 'prof-list', { sec: 'skills' }, 'Edit interests') : '', 'profile-interests')}
+        ${sect('Activity', activity.length ? activity.join('') : '<p class="muted">No recent activity yet.</p>')}
+      </div><aside class="li-aside">${analytics}
+        <section class="li-card li-recommend"><h2>Recommended jobs</h2>${recJobs.length ? recJobs.map(j => `<a class="li-recommend-row" href="#/job/${j.id}">${ui().logo(PL.q.company(j.companyId) || { name: 'Company' }, 42)}<span><b>${E(j.title)}</b><small>${E((PL.q.company(j.companyId) || {}).name || '')} · ${E(j.city)}</small></span></a>`).join('') : '<p class="small muted">No job recommendations yet.</p>'}<a class="li-more" href="#/job-results">Explore jobs</a></section>
+        <section class="li-card li-recommend"><h2>Recommended companies</h2>${recCompanies.length ? recCompanies.map(x => `<a class="li-recommend-row" href="#/companies/${x.company.id}">${ui().logo(x.company, 42)}<span><b>${E(x.company.name)}</b><small>${E(x.company.industry)} · ${x.jobs.length} open ${x.jobs.length === 1 ? 'role' : 'roles'}</small></span></a>`).join('') : '<p class="small muted">No company recommendations yet.</p>'}<a class="li-more" href="#/job-search">Browse companies hiring</a></section>
+        ${own ? sect('Career preferences & privacy', `<dl class="kv"><dt>Preferred roles</dt><dd>${E(roles.join(', ') || '—')}</dd><dt>Locations</dt><dd>${E(((p.preferences || {}).locations || []).join(', ') || '—')}</dd><dt>Expected salary</dt><dd>${E((p.preferences || {}).salary || '—')}</dd><dt>Visibility</dt><dd>${E(priv.visibility || 'Public')}</dd><dt>Email shown</dt><dd>${priv.showEmail ? 'Yes' : 'No'}</dd><dt>Phone shown</dt><dd>${priv.showPhone ? 'Yes' : 'No'}</dd></dl>`, `<button class="btn btn-secondary btn-sm" data-action="prof-prefs">${I('edit', 14)} Edit</button>`) : ''}
+      </aside></div></div>`;
   }
-  R.add('/app/profile', profilePage, Object.assign({ title: 'My profile' }, BOTH));
+  R.add('/app/profile', ctx => {
+    const html = profilePage(ctx);
+    return ctx.query.focus ? { html, after: () => setTimeout(() => { const target = document.getElementById('profile-' + ctx.query.focus); if (target) target.scrollIntoView({ block: 'start' }); }, 0) } : html;
+  }, Object.assign({ title: 'My profile' }, BOTH));
+
+  R.add('/app/profile/edit', () => {
+    const u = me(), p = prof(u);
+    return `<div class="cp-form-page"><form class="cp-card cp-form" data-form="profile-edit" novalidate><div class="cp-form-photo"><div class="cp-avatar">${ui().avatar(u, 78)}<button type="button" class="cp-photo-btn" data-action="prof-photo" aria-label="Change photo">${I('camera', 15)}</button></div><button type="button" class="link-btn" data-action="prof-photo">Change Photo</button></div>
+      ${ui().field({ name: 'name', label: 'Full Name', required: true, value: u.name })}${ui().field({ name: 'phone', label: 'Mobile Number', type: 'tel', required: true, value: u.phone })}${ui().field({ name: 'email', label: 'Email Address', type: 'email', value: u.email, disabled: true, help: 'Email address cannot be changed in this prototype.' })}${ui().field({ name: 'title', label: 'Designation', required: true, value: p.title || '' })}${ui().field({ name: 'company', label: 'Company', value: p.company || '' })}${ui().field({ name: 'location', label: 'Location', value: u.location || '' })}${ui().field({ name: 'headline', label: 'Professional Headline', value: p.headline || '', full: true })}${ui().field({ name: 'about', label: 'About Me', type: 'textarea', rows: 5, value: p.about || '', full: true })}<button class="btn cp-form-submit" type="submit">Save Changes</button></form></div>`;
+  }, Object.assign({ title: 'Edit profile' }, CAND));
+  R.add('/app/profile/experience', () => {
+    const p = prof(me()), rows = p.experience || [];
+    return `<div class="cp-form-page cp-experience-page"><section class="cp-card cp-section"><div class="cp-section-head"><h2>Experience</h2><a class="btn btn-sm" href="#/app/profile/experience/new?return=profile">${I('plus', 14)} Add Experience</a></div>${rows.length ? rows.map(x => `<article class="cp-exp-row"><span class="cp-entry-icon">${I('briefcase', 18)}</span><div class="cp-entry-copy"><b>${E(x.title || 'Professional experience')}</b><span>${E(x.company || '')}</span><small>${E([monthLabel(x.from), x.to === 'Present' || x.current ? 'Present' : monthLabel(x.to)].filter(Boolean).join(' – '))}</small>${x.location ? `<small>${E(x.location)}</small>` : ''}${x.desc ? `<p>${E(x.desc)}</p>` : ''}</div><div class="cp-entry-actions"><a href="#/app/profile/experience/${E(x.id)}?return=profile" class="cp-icon-link" aria-label="Edit experience">${I('edit', 15)}</a>${ctl(true, 'prof-del', { sec: 'exp', id: x.id }, 'Delete experience', 'trash')}</div></article>`).join('') : '<p class="cp-empty">No experience added yet.</p>'}</section></div>`;
+  }, Object.assign({ title: 'Experience' }, CAND));
+  R.add('/app/profile/experience/:id', ctx => {
+    const u = me(), p = prof(u), isNew = ctx.params.id === 'new';
+    const item = isNew ? null : (p.experience || []).find(x => x.id === ctx.params.id);
+    if (!isNew && !item) return ui().empty('briefcase', 'Experience not found', '', '<a class="btn" href="#/app/profile/experience">Back to experience</a>');
+    const returningToProfile = ctx.query.return === 'profile';
+    const current = !!(item && (item.current || item.to === 'Present')), currentMonth = new Date().toISOString().slice(0, 7);
+    return `<div class="cp-form-page"><form class="cp-card cp-form cp-exp-form" data-form="profile-experience" data-id="${isNew ? '' : E(item.id)}" data-mode="${isNew ? 'new' : 'edit'}" data-return="${returningToProfile ? 'profile' : 'list'}" novalidate><h1>${isNew ? 'Add Experience' : 'Edit Experience'}</h1>
+      ${ui().field({ name: 'title', label: 'Designation', required: true, value: item && item.title || '', placeholder: 'Select designation' })}${ui().field({ name: 'company', label: 'Company', required: true, value: item && item.company || '', placeholder: 'Enter company name' })}${ui().field({ name: 'location', label: 'Location', required: true, value: item && item.location || u.location || '', placeholder: 'Select location' })}<div class="cp-date-fields">${ui().field({ name: 'from', label: 'From', type: 'month', required: true, value: item && monthInput(item.from) || '', attrs: ' min="1940-01" max="' + currentMonth + '"' })}${ui().field({ name: 'to', label: 'To', type: 'month', required: !current, disabled: current, value: item && !current ? monthInput(item.to, true) : '', attrs: ' min="1940-01" max="' + currentMonth + '"' })}</div>${ui().field({ name: 'current', label: 'I currently work here', type: 'checkbox', value: current, attrs: ' data-live="profile-current"' })}${ui().field({ name: 'desc', label: 'Description', type: 'textarea', rows: 5, required: true, full: true, value: item && item.desc || '', placeholder: 'Enter description' })}<button class="btn cp-form-submit" type="submit">Save Changes</button></form></div>`;
+  }, Object.assign({ title: 'Experience' }, CAND));
+  R.add('/app/profile/analytics', () => {
+    const u = me(), p = prof(u);
+    return `<div class="cp-form-page cp-analytics-page"><section class="cp-card cp-section"><div class="cp-section-head"><div><h2>Profile Analytics</h2><p class="cp-analytics-subtitle">Your profile performance at a glance</p></div><span class="cp-private">${I('eye', 13)} Only you</span></div><div class="cp-analytics-grid"><div><b>${Number(p.views) || 0}</b><span>Profile Views</span></div><div><b>${Number(p.resumeDownloads) || 0}</b><span>Resume Downloads</span></div><div><b>${Number(p.searchAppearances) || 0}</b><span>Search Appearances</span></div></div><p class="cp-analytics-note">Browser-local prototype totals; demo profiles may include sample starting counts. Resume downloads count generated resume export attempts.</p></section><section class="cp-card cp-section"><div class="cp-section-head"><h2>Who Viewed Your Profile</h2></div><p class="cp-empty">Viewer identities are not available in this prototype.</p></section></div>`;
+  }, Object.assign({ title: 'Profile analytics' }, CAND));
+  R.add('/app/profile/completion', () => {
+    const u = me(), p = prof(u), checks = [
+      ['Professional headline', !!p.headline, '#/app/profile/edit'],
+      ['About Me', (p.about || '').length > 30, '#/app/profile/edit'],
+      ['Location', !!u.location, '#/app/profile/edit'],
+      ['Education', (p.education || []).length > 0, '#/onboarding?edit=education'],
+      ['Work experience', (p.experience || []).length > 0, '#/app/profile/experience/new?return=profile'],
+      ['At least 3 skills', (p.skills || []).length >= 3, '#/onboarding?edit=skills'],
+      ['Certifications', (p.certifications || []).length > 0, '#/onboarding?edit=certifications'],
+      ['Languages', (p.languages || []).length > 0, '#/onboarding?edit=languages'],
+      ['Resume ready', PL.q.hasResume(u), '#/app/resume'],
+      ['Career preferences', !!(p.preferences && p.preferences.roles && p.preferences.roles.length), '#/onboarding?edit=interests']
+    ];
+    const pct = PL.q.completion(u).pct;
+    const next = checks.find(([, done]) => !done);
+    return `    <div class="cp-form-page"><section class="cp-card cp-section cp-completion-detail"><div class="cp-completion-score"><span>${pct}%</span><b>Profile Completion</b><small>Profiles with complete information get more job matches.</small></div>${ui().progress(pct)}<h2>Complete These Sections</h2><div class="cp-checklist">${checks.map(([label, done, href]) => `<a href="${href}" class="${done ? 'done' : ''}"><span class="cp-checkmark ${done ? 'done' : ''}">${done ? I('checkc', 16) : ''}</span>${label}${I('right', 15)}</a>`).join('')}</div>${next ? `<a class="btn cp-form-submit" href="${next[2]}">Complete Next Item: ${next[0]}</a>` : '<p class="cp-empty">Your profile is complete.</p>'}</section></div>`;
+  }, Object.assign({ title: 'Profile completion' }, CAND));
   R.add('/app/profile/:id', profilePage, Object.assign({ title: 'Profile' }, BOTH));
 
   const SEC = {
@@ -69,7 +175,7 @@
   }
   PL.act('prof-add', async d => { const r = await secForm(d.sec); if (!r) return; r.id = PL.store.id('x'); const p = prof(me()); (p[SEC[d.sec].key] = p[SEC[d.sec].key] || []).push(r); PL.store.save(); ui().toast('Added'); PL.rerender(); });
   PL.act('prof-edit', async d => { const p = prof(me()), o = p[SEC[d.sec].key].find(x => x.id === d.id), r = await secForm(d.sec, o); if (!r) return; Object.assign(o, r); PL.store.save(); ui().toast('Updated'); PL.rerender(); });
-  PL.act('prof-del', async d => { if (!(await ui().confirm({ title: 'Delete this entry?', confirmText: 'Delete', danger: true }))) return; const a = prof(me())[SEC[d.sec].key]; a.splice(a.findIndex(x => x.id === d.id), 1); PL.store.save(); PL.rerender(); });
+  PL.act('prof-del', async d => { if (!(await ui().confirm({ title: 'Delete this entry?', confirmText: 'Delete', danger: true }))) return; const a = prof(me())[SEC[d.sec].key], i = a.findIndex(x => x.id === d.id); if (i < 0) return ui().toast('This profile entry is no longer available.', 'err'); a.splice(i, 1); PL.store.save(); PL.rerender(); });
   PL.act('prof-list', async d => { const p = prof(me()), r = await ui().ask({ title: 'Edit ' + d.sec, message: 'Separate items with commas.', fields: [{ name: 'v', label: d.sec === 'skills' ? 'Skills' : 'Languages', type: 'textarea', rows: 3, value: (p[d.sec] || []).join(', ') }] }); if (!r) return; p[d.sec] = ui().split(r.v); PL.store.save(); PL.rerender(); });
   PL.act('prof-prefs', async () => {
     const p = prof(me()), pr = (p.preferences = p.preferences || {}), pv = (p.privacy = p.privacy || {});
@@ -77,22 +183,55 @@
     if (!r) return; pr.roles = ui().split(r.roles); pr.locations = ui().split(r.locations); pr.salary = r.salary; Object.assign(pv, { visibility: r.visibility, showEmail: r.showEmail, showPhone: r.showPhone }); PL.store.save(); ui().toast('Preferences saved'); PL.rerender();
   });
   PL.act('prof-photo', () => ui().pickImage(data => { me().photo = data; PL.store.save(); ui().toast('Photo updated'); PL.rerender(); }));
+  PL.act('prof-cover', () => ui().pickImage(data => { const p = prof(me()); p.coverImg = data; PL.store.save(); ui().toast('Profile banner updated'); PL.rerender(); }));
+  PL.act('resume-upload', () => ui().pickFile('.pdf,.doc,.docx', file => {
+    if (!/\.(pdf|docx?)$/i.test(file.name)) return ui().toast('Please choose a PDF or Word file.', 'err');
+    if (file.size > 2 * 1048576) return ui().toast('File is larger than 2 MB.', 'err');
+    prof(me()).resume = { name: file.name, type: file.type || 'Resume file', size: file.size, uploadedAt: F().iso(), visibility: 'Recruiters only' };
+    PL.store.save(); ui().toast('Resume details updated'); PL.rerender();
+  }));
+  PL.form('profile-edit', f => {
+    if (!ui().validate(f)) return;
+    const d = ui().formData(f), u = me(), p = prof(u);
+    Object.assign(u, { name: d.name, phone: d.phone, location: d.location });
+    Object.assign(p, { title: d.title, company: d.company, headline: d.headline || d.title, about: d.about });
+    PL.store.save(); ui().toast('Profile updated'); PL.go('/app/profile');
+  });
+  PL.form('profile-experience', f => {
+    if (!ui().validate(f)) return;
+    const d = ui().formData(f), u = me(), p = prof(u), current = f.dataset.mode === 'new';
+    const latestMonth = new Date().toISOString().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(d.from) || d.from < '1940-01' || d.from > latestMonth) { ui().setError(f, 'from', 'Choose a valid start month between January 1940 and the current month.'); f.elements.namedItem('from').focus(); return; }
+    if (!d.current && (!/^\d{4}-\d{2}$/.test(d.to) || d.to < '1940-01' || d.to > latestMonth)) { ui().setError(f, 'to', 'Choose a valid end month between January 1940 and the current month.'); f.elements.namedItem('to').focus(); return; }
+    if (!d.current && d.to < d.from) { ui().setError(f, 'to', 'End date cannot be before the start date.'); f.elements.namedItem('to').focus(); return; }
+    const item = current ? { id: PL.store.id('x') } : (p.experience || []).find(x => x.id === f.dataset.id);
+    if (!item) return ui().toast('This experience entry is no longer available.', 'err');
+    Object.assign(item, { title: d.title, company: d.company, location: d.location, from: d.from, to: d.current ? 'Present' : d.to, current: d.current, desc: d.desc });
+    if (current) (p.experience = p.experience || []).push(item);
+    if (d.current || (p.experience || [])[0] === item) { p.title = d.title; p.company = d.company; }
+    PL.store.save(); ui().toast(current ? 'Experience added' : 'Experience updated'); PL.go(f.dataset.return === 'profile' ? '/app/profile?focus=experience' : '/app/profile/experience');
+  });
+  PL.live['profile-current'] = el => {
+    const end = el.form.elements.namedItem('to');
+    if (!end) return;
+    end.required = !el.checked;
+    end.disabled = el.checked;
+    if (el.checked) { end.value = ''; end.removeAttribute('aria-invalid'); const err = end.closest('.field').querySelector('.err'); if (err) err.textContent = ''; }
+  };
+  PL.act('profile-share', () => {
+    const link = ui().url('/app/profile?preview=1');
+    if (navigator.share) {
+      navigator.share({ title: me().name + ' | PharmaLinkIn', url: link }).catch(error => { if (error.name !== 'AbortError') ui().toast('Unable to share your profile.', 'err'); });
+    } else ui().copy(link);
+  });
   PL.act('save-cand', d => { const u = me(), l = (db().savedCandidates[u.id] = db().savedCandidates[u.id] || []), i = l.indexOf(d.id); if (i >= 0) l.splice(i, 1); else l.push(d.id); PL.store.save(); ui().toast(i >= 0 ? 'Removed from saved candidates' : 'Candidate saved'); PL.rerender(); });
 
   /* ---------- resume ---------- */
   R.add('/app/resume', () => {
     const u = me(), r = prof(u).resume;
-    return `${ui().pageHead('Resume')}<div class="narrow stack" style="max-width:760px">${ui().notice('Resumes are simulated: only the file name and size are stored in your browser. Nothing is uploaded.', '')}
-      <div class="card pad-lg">${r ? `<div class="row between nowrap"><div class="row nowrap">${I('file', 36)}<div><div class="bold">${E(r.name)}</div><div class="small muted">${E(r.type)} · ${F().size(r.size)} · uploaded ${F().date(r.uploadedAt)}</div></div></div><div class="row"><button class="btn btn-secondary btn-sm" data-action="resume-upload">Replace</button><button class="btn btn-outline-danger btn-sm" data-action="resume-del">${I('trash', 14)} Delete</button></div></div>
-      <div class="mt"><label class="small bold" for="rv">Who can see this resume</label><select id="rv" data-live="resume-vis" style="max-width:260px">${['Recruiters only', 'Applications only', 'Private'].map(o => `<option ${r.visibility === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>` : ui().empty('upload', 'No resume uploaded', 'Add a PDF or Word resume (max 2 MB) to apply faster.', `<button class="btn" data-action="resume-upload">${I('upload', 16)}       Upload resume</button>`)}</div>${PL.onb && PL.onb.resumeCard ? PL.onb.resumeCard(u) : ''}</div>`;
+    return `${ui().pageHead('Resume')}<div class="narrow stack" style="max-width:760px">
+      <div class="card pad-lg">${r ? `<div class="row between nowrap"><div class="row nowrap">${I('file', 36)}<div><div class="bold">${E(r.name)}</div><div class="small muted">${E(r.type)} · ${F().size(r.size)} · uploaded ${F().date(r.uploadedAt)}</div></div></div><button class="btn btn-secondary btn-sm" data-action="resume-upload">${I('upload', 14)} Update</button></div>` : ui().empty('file', 'No uploaded resume', 'Your generated profile resume is available below and can be used when applying.', '<button type="button" class="btn" data-action="resume-upload">Upload resume</button>')}</div>${PL.onb && PL.onb.resumeCard ? PL.onb.resumeCard(u) : ''}</div>`;
   }, Object.assign({ title: 'Resume' }, CAND));
-  PL.live['resume-vis'] = el => { prof(me()).resume.visibility = el.value; PL.store.save(); ui().toast('Visibility updated'); };
-  PL.act('resume-upload', () => ui().pickFile('.pdf,.doc,.docx', f => {
-    if (!/\.(pdf|docx?)$/i.test(f.name)) return ui().toast('Please choose a PDF or Word file.', 'err');
-    if (f.size > 2 * 1048576) return ui().toast('File is larger than 2 MB.', 'err');
-    const p = prof(me()); p.resume = { name: f.name, type: f.name.split('.').pop().toUpperCase(), size: f.size, visibility: (p.resume && p.resume.visibility) || 'Recruiters only', uploadedAt: F().iso() }; PL.store.save(); ui().toast('Resume saved'); PL.rerender();
-  }));
-  PL.act('resume-del', async () => { if (!(await ui().confirm({ title: 'Delete resume?', confirmText: 'Delete', danger: true }))) return; prof(me()).resume = null; PL.store.save(); PL.rerender(); });
 
   /* ---------- apply wizard ---------- */
   const STEPS = ['Contact', 'Resume', 'Questions', 'Review'];

@@ -298,6 +298,31 @@
     appFor: (uid, jobId) => db().applications.find(a => a.candidateId === uid && a.jobId === jobId && a.status !== 'Withdrawn'),
     saved: uid => db().savedJobs[uid] || [],
     isSaved: (uid, jid) => (db().savedJobs[uid] || []).includes(jid),
+    syncLegacyApplications(uid) {
+      const u = PL.q.user(uid), profile = u && u.profile;
+      if (!profile || !Array.isArray(profile.applied)) return PL.q.appsOf(uid);
+      let changed = false;
+      profile.applied.forEach(item => {
+        const job = PL.q.job(item.id);
+        if (!job || db().applications.some(a => a.candidateId === uid && a.jobId === job.id)) return;
+        const id = PL.store.id('a'), appliedAt = item.at || new Date().toISOString();
+        db().applications.unshift({
+          id, ref: 'PLI-' + new Date(appliedAt).getFullYear() + '-' + id.replace(/\D/g, ''),
+          jobId: job.id, candidateId: uid, recruiterId: job.recruiterId,
+          resumeName: profile.resume && profile.resume.name || 'Generated PharmaLinkIn profile resume',
+          coverLetter: '', answers: [], status: 'Applied', appliedAt, updatedAt: appliedAt,
+          notes: [], interview: null, phone: u.phone,
+          history: [{ status: 'Applied', at: appliedAt, note: 'Application migrated from the earlier candidate flow' }]
+        });
+        changed = true;
+      });
+      if (changed) PL.store.save();
+      return PL.q.appsOf(uid);
+    },
+    hasResume(u) {
+      const p = u && u.profile || {};
+      return !!p.resume || !!(p.onboarded && ((p.about || '').trim() || (p.education || []).length || (p.experience || []).length || (p.skills || []).length));
+    },
     follows: uid => (db().follows[uid] = db().follows[uid] || { users: [], companies: [] }),
     conn(a, b) { return db().connections.find(c => (c.requesterId === a && c.recipientId === b) || (c.requesterId === b && c.recipientId === a)); },
     connStatus(me, other) { const c = PL.q.conn(me, other); if (!c) return 'none'; if (c.status === 'accepted') return 'connected'; return c.requesterId === me ? 'sent' : 'received'; },
@@ -305,7 +330,7 @@
     unreadMsgs: uid => db().messages.filter(m => m.recipientId === uid && !m.read).length,
     usage(uid) { const u = PL.q.user(uid), sub = PL.q.sub(uid), plan = PL.q.plan(sub ? sub.planId : 'free'); const jobs = PL.q.myJobs(uid).filter(j => ['Published', 'Pending Approval', 'Paused'].includes(j.status)); return { plan, sub, jobs: jobs.length, featured: jobs.filter(j => j.featured).length, resumes: sub ? sub.usage.resumes : 0 }; },
     completion(u) {
-      const p = u.profile || {}; const checks = [['Headline', !!p.headline, 10], ['About summary', (p.about || '').length > 30, 10], ['Location', !!u.location, 5], ['Education', (p.education || []).length > 0, 15], ['Work experience', (p.experience || []).length > 0, 15], ['At least 3 skills', (p.skills || []).length >= 3, 10], ['Certifications', (p.certifications || []).length > 0, 10], ['Languages', (p.languages || []).length > 0, 5], ['Resume uploaded', !!p.resume, 15], ['Career preferences', !!(p.preferences && p.preferences.roles && p.preferences.roles.length), 5]];
+      const p = u.profile || {}; const checks = [['Headline', !!p.headline, 10], ['About summary', (p.about || '').length > 30, 10], ['Location', !!u.location, 5], ['Education', (p.education || []).length > 0, 15], ['Work experience', (p.experience || []).length > 0, 15], ['At least 3 skills', (p.skills || []).length >= 3, 10], ['Certifications', (p.certifications || []).length > 0, 10], ['Languages', (p.languages || []).length > 0, 5], ['Resume ready', PL.q.hasResume(u), 15], ['Career preferences', !!(p.preferences && p.preferences.roles && p.preferences.roles.length), 5]];
       const pct = checks.reduce((a, c) => a + (c[1] ? c[2] : 0), 0); return { pct, missing: checks.filter(c => !c[1]).map(c => c[0]) };
     }
   };

@@ -8,20 +8,42 @@
   const brand = (href = '/') => `<a href="#${href}" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span><span>Pharma<b>LinkIn</b></span></a>`;
 
   function profileMenu(u) {
-    const items = PL.onboardingOnly() && u.role === 'candidate' ? [{ label: 'Find jobs', href: '#/job-search', icon: 'briefcase' }, { label: 'My dashboard', href: '#/dashboard', icon: 'dash' }] : [{ label: 'My dashboard', href: '#' + PL.auth.homeFor(u), icon: 'dash' }];
-    if (['candidate', 'recruiter'].includes(u.role) && !PL.onboardingOnly()) items.push({ label: 'View profile', href: '#/app/profile', icon: 'user' }, { label: 'Settings', href: '#/app/settings', icon: 'settings' });
+    const items = u.role === 'candidate'
+      ? [{ label: 'My profile', href: '#/app/profile', icon: 'user' }, { label: 'Find jobs', href: '#/job-results', icon: 'briefcase' }]
+      : [{ label: 'My dashboard', href: '#' + PL.auth.homeFor(u), icon: 'dash' }];
+    if (!PL.onboardingOnly() && u.role === 'candidate') items.push({ label: 'Settings', href: '#/app/settings', icon: 'settings' });
+    if (!PL.onboardingOnly() && u.role === 'recruiter') items.push({ label: 'View profile', href: '#/app/profile', icon: 'user' }, { label: 'Settings', href: '#/app/settings', icon: 'settings' });
     items.push('-', { label: 'Sign out', action: 'logout', icon: 'logout' });
     return `<div class="dd"><button class="icon-btn" data-action="dd" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu" style="width:auto;padding:2px">${ui().avatar(u, 34)}</button><div class="dd-menu" role="menu"><div style="padding:8px 10px"><div class="bold">${E(u.name)}</div><div class="xs muted">${PL.auth.roleLabel(u.role)}</div></div><div class="dd-sep"></div>${items.map(i => i === '-' ? '<div class="dd-sep"></div>' : i.href ? `<a class="dd-item" role="menuitem" href="${i.href}">${I(i.icon, 16)}${i.label}</a>` : `<button class="dd-item" role="menuitem" data-action="${i.action}">${I(i.icon, 16)}${i.label}</button>`).join('')}</div></div>`;
   }
 
-  PL.brandHtml = brand; PL.profileMenu = profileMenu; PL.footerHtml = () => footer();
+  const mobileBackbar = ctx => {
+    const path = ctx.path, previous = PL.state.mobilePreviousPath;
+    const flow = value => {
+      if (/^\/app\/profile(?:\/|$)/.test(value)) return 'profile';
+      if (/^\/(?:job-search|job-results|job\/|dashboard$|saved-jobs|my-applications)/.test(value)) return 'jobs';
+      if (/^\/app\//.test(value)) return 'candidate-app';
+      if (/^\/employer\//.test(value)) return 'employer';
+      if (/^\/advertiser\//.test(value)) return 'advertiser';
+      if (/^\/admin\//.test(value)) return 'admin';
+      if (/^\/(?:login|register|verify-account|forgot-password|forgot-username|reset-password)$/.test(value)) return 'auth';
+      if (/^\/onboarding(?:\/|$)/.test(value)) return 'onboarding';
+      if (value === '/' || /^\/(?:jobs|companies|news|pricing|page)(?:\/|$)/.test(value)) return 'public';
+      return '';
+    };
+    const roots = new Set(['/', '/app/profile', '/app/feed', '/app/dashboard', '/job-search', '/dashboard', '/login', '/register', '/onboarding', '/jobs', '/companies', '/news', '/pricing']);
+    if (!previous || roots.has(path) || !flow(path) || flow(path) !== flow(previous)) return '';
+    return `<div class="mobile-backbar"><button type="button" class="mobile-back-button" data-action="history-back">${I('left', 18)}<span>Back</span></button></div>`;
+  };
+  PL.brandHtml = brand; PL.profileMenu = profileMenu; PL.footerHtml = () => footer(); PL.mobileBackbar = mobileBackbar;
+  PL.act('history-back', () => window.history.back());
   function publicLayout(ctx, html, u) {
     const cand = PL.onboardingOnly() && u && u.role === 'candidate';
-    const links = cand ? [['Jobs', '/job-search'], ['Dashboard', '/dashboard']] : PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
+    const links = cand ? [['Jobs', '/job-results']] : PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
     const act = active(/^\/job/.test(ctx.path) && cand ? '/job-search' : ctx.path, links);
     return `${BANNER}<header class="site-header"><div class="container inner">${brand(cand ? '/job-search' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
       <div class="row auth-btns" style="margin-left:auto">${u ? `${cand ? '' : `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>`}${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
-      <main id="main" tabindex="-1">${html}</main>${footer()}`;
+      ${mobileBackbar(ctx)}<main id="main" tabindex="-1">${html}</main>${footer()}`;
   }
   function footer() {
     if (PL.onboardingOnly()) return `<footer class="site-footer"><div class="container"><div class="row between" style="gap:12px"><div class="brand" style="color:#fff"><span class="brand-mark">${I('pill', 18)}</span> PharmaLinkIn</div><ul class="row" style="list-style:none;margin:0;padding:0;gap:16px"><li><a href="#/page/privacy">Privacy</a></li><li><a href="#/page/terms">Terms</a></li><li><a href="#/page/contact">Contact</a></li><li><button class="link-btn" style="color:#D0D5DD" data-action="reset-demo">Reset demo data</button></li></ul></div><p class="xs mt">© ${new Date().getFullYear()} PharmaLinkIn prototype · Candidate onboarding preview · Demo content only</p></div></footer>`;
@@ -31,21 +53,38 @@
       <div><h4>Legal</h4><ul><li><a href="#/page/privacy">Privacy</a></li><li><a href="#/page/terms">Terms</a></li><li><button class="link-btn" style="color:#D0D5DD" data-action="reset-demo">Reset demo data</button></li></ul></div></div>
       <p class="xs mt">© ${new Date().getFullYear()} PharmaLinkIn prototype · Demo content only · Reference: pharmalinkin.com</p></div></footer>`;
   }
-  function authLayout(html) { return `${BANNER}<header class="site-header"><div class="container inner">${brand()}<a class="btn btn-ghost btn-sm" style="margin-left:auto" href="#/">${I('left', 14)} Back to site</a></div></header><main id="main" tabindex="-1">${html}</main>`; }
+  function authLayout(ctx, html) { return `${BANNER}<header class="site-header"><div class="container inner">${brand()}<a class="btn btn-ghost btn-sm" style="margin-left:auto" href="#/">${I('left', 14)} Back to site</a></div></header>${mobileBackbar(ctx)}<main id="main" tabindex="-1">${html}</main>`; }
 
   function appLayout(ctx, html, u) {
     const unreadM = PL.q.unreadMsgs(u.id), unreadN = PL.q.unreadNotifs(u.id);
-    const nav = [['Home', '/app/feed', 'home'], ['Jobs', '/app/jobs', 'briefcase'], ['My Network', '/app/network', 'users'], ['Messages', '/app/messages', 'message', unreadM], ['Notifications', '/app/notifications', 'bell', unreadN]];
+    const candidateProfile = u.role === 'candidate' && /^\/app\/profile(?:\/|$)/.test(ctx.path);
+    const profileTitles = {
+      '/app/profile': ctx.query.preview ? 'Profile' : 'My Profile',
+      '/app/profile/edit': 'Edit Profile',
+      '/app/profile/experience': 'Experience',
+      '/app/profile/analytics': 'Profile Analytics',
+      '/app/profile/completion': 'Profile Completion'
+    };
+    const profileTitle = profileTitles[ctx.path] || (ctx.path.startsWith('/app/profile/experience/') ? (ctx.path.endsWith('/new') ? 'Add Experience' : 'Edit Experience') : 'My Profile');
+    const nav = [['Home', u.role === 'candidate' ? '/app/profile' : '/app/feed', 'home'], ['Jobs', u.role === 'candidate' ? '/job-results' : '/app/jobs', 'briefcase'], ['My Network', '/app/network', 'users'], ...(u.role === 'candidate' ? [] : [['Messages', '/app/messages', 'message', unreadM]]), ['Notifications', '/app/notifications', 'bell', unreadN]];
     const a = active(ctx.path, nav.concat([['Home', '/app/dashboard', 'home'], ['Jobs', '/app/applications', 'briefcase'], ['Jobs', '/app/saved-jobs', 'briefcase'], ['Jobs', '/app/job-alerts', 'briefcase']]));
     const actKey = a ? a[1] : '';
     const mapKey = { '/app/dashboard': '/app/feed', '/app/applications': '/app/jobs', '/app/saved-jobs': '/app/jobs', '/app/job-alerts': '/app/jobs' }[actKey] || actKey;
-    const cta = { candidate: ['Upload resume', '/app/resume'], recruiter: ['Post a job', '/employer/jobs/new'], advertiser: ['New campaign', '/advertiser/campaigns/new'] }[u.role] || ['Dashboard', PL.auth.homeFor(u)];
-    return `${BANNER}<header class="topnav"><div class="container container-wide inner"><a href="#/app/feed" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span></a>
+    const cta = u.role === 'candidate' ? null : ({ recruiter: ['Post a job', '/employer/jobs/new'], advertiser: ['New campaign', '/advertiser/campaigns/new'] }[u.role] || ['Dashboard', PL.auth.homeFor(u)]);
+    const profileAction = ctx.path === '/app/profile' && !ctx.query.preview
+      ? `<a href="#/app/profile/edit" aria-label="Edit profile">${I('edit', 18)}</a>`
+      : ctx.path === '/app/profile/experience' ? `<a href="#/app/profile/experience/new?return=profile" aria-label="Add experience">${I('plus', 19)}</a>`
+        : `<a href="#/app/profile" aria-label="View My Profile">${I('user', 18)}</a>`;
+    const header = candidateProfile
+      ? `<header class="profile-topbar"><span></span><strong>${E(profileTitle)}</strong>${profileAction}</header>`
+      : `<header class="topnav"><div class="container container-wide inner"><a href="#${u.role === 'candidate' ? '/app/profile' : '/app/feed'}" class="brand" aria-label="PharmaLinkIn home"><span class="brand-mark">${I('pill', 18)}</span></a>
       <form class="search" data-form="global-search" role="search"><label class="sr" for="gs">Search people, jobs, companies</label>${I('search', 16)}<input id="gs" type="search" name="q" placeholder="Search people, jobs, companies" autocomplete="off"></form>
       <nav class="navlinks" aria-label="Primary">${nav.map(n => `<a class="navlink ${n[1] === mapKey ? 'active' : ''}" href="#${n[1]}" ${n[1] === mapKey ? 'aria-current="page"' : ''}>${I(n[2], 20)}<span class="lbl">${n[0]}</span>${n[3] ? `<span class="count" aria-label="${n[3]} unread">${n[3]}</span>` : ''}</a>`).join('')}</nav>
-      <a class="btn btn-sm hide-sm" href="#${cta[1]}" style="margin-left:6px">${cta[0]}</a>${profileMenu(u)}</div></header>
+      ${cta ? `<a class="btn btn-sm hide-sm" href="#${cta[1]}" style="margin-left:6px">${cta[0]}</a>` : ''}${profileMenu(u)}</div></header>
+      `;
+    return `${BANNER}${header}${mobileBackbar(ctx)}
       <main id="main" tabindex="-1" class="container container-wide app-main">${html}</main>
-      <nav class="bottomnav" aria-label="Mobile primary">${nav.map(n => `<a href="#${n[1]}" class="${n[1] === mapKey ? 'active' : ''}">${I(n[2], 22)}<span>${n[0].replace('My ', '').replace('Notifications', 'Alerts')}</span>${n[3] ? `<span class="count">${n[3]}</span>` : ''}</a>`).join('')}</nav>`;
+      ${PL.mobileNav ? PL.mobileNav(u.role, ctx.path) : `<nav class="bottomnav" aria-label="Mobile primary">${nav.map(n => `<a href="#${n[1]}" class="${n[1] === mapKey ? 'active' : ''}">${I(n[2], 22)}<span>${n[0].replace('My ', '').replace('Notifications', 'Alerts')}</span>${n[3] ? `<span class="count">${n[3]}</span>` : ''}</a>`).join('')}</nav>`}`;
   }
 
   const NAVS = {
@@ -61,13 +100,13 @@
     return `${BANNER}<div class="dash"><aside class="sidebar" id="sidebar" aria-label="${title}"><div class="row between nowrap" style="padding:4px 8px 10px">${brand(PL.auth.homeFor(u))}<button class="icon-btn dash-toggle" data-action="sidebar-toggle" aria-label="Close menu">${I('x')}</button></div><div class="side-label">${title}</div>${items.map(link).join('')}<div style="flex:1"></div>${L === 'admin' ? '<div class="small" style="color:#94A3B8;padding:10px">Admin console – prototype. Role separation is a UI demo, not real security.</div>' : ''}</aside><div class="scrim" id="scrim" data-action="sidebar-toggle"></div>
       <div><header class="dash-top"><button class="icon-btn dash-toggle" data-action="sidebar-toggle" aria-label="Open menu" aria-controls="sidebar">${I('menu')}</button><span class="badge ${L === 'admin' ? 'b-purple' : 'b-blue'}">${title}</span><div style="flex:1"></div>
         ${L === 'employer' && !PL.onboardingOnly() ? `<a class="icon-btn" href="#/employer/messages" aria-label="Messages">${I('message')}${counts.m ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.m}</span>` : ''}</a>` : ''}${PL.onboardingOnly() ? '' : `<a class="icon-btn" href="#/${L}/notifications" aria-label="Notifications">${I('bell')}${counts.n ? `<span class="count" style="position:absolute;top:2px;right:2px">${counts.n}</span>` : ''}</a>`}${profileMenu(u)}</header>
-        <main id="main" tabindex="-1" class="dash-body">${html}</main></div></div>`;
+        ${mobileBackbar(ctx)}<main id="main" tabindex="-1" class="dash-body">${html}</main></div></div>${PL.mobileNav ? PL.mobileNav(u.role, ctx.path) : ''}`;
   }
   PL.layout = {
     render(meta, ctx, html, user) {
       const L = meta.layout || 'public'; document.body.className = L === 'admin' ? 'theme-admin' : '';
       let out;
-      if (L === 'jobs') out = PL.jobsLayout(ctx, html, user); else if (L === 'public') out = publicLayout(ctx, html, user); else if (L === 'auth') out = authLayout(html);
+      if (L === 'jobs') out = PL.jobsLayout(ctx, html, user); else if (L === 'public') out = publicLayout(ctx, html, user); else if (L === 'auth') out = authLayout(ctx, html);
       else if (L === 'app') out = appLayout(ctx, html, user); else out = dashLayout(L, ctx, html, user);
       document.getElementById('root').innerHTML = out;
     }
