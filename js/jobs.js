@@ -316,8 +316,12 @@
 
 
   /* ---------- results ---------- */
-  const facetBox = (title, key, p, counts, labelOf, open = true, limit = 6) => {
-    let ents = Object.entries(counts).sort((a, b) => b[1] - a[1]); (p[key] || []).forEach(v => { if (!counts[v]) ents.push([v, 0]); });
+  const facetBox = (title, key, p, counts, labelOf, open = true, limit = 6, priority = []) => {
+    let ents = Object.entries(counts).sort((a, b) => {
+      const ai = priority.indexOf(a[0]), bi = priority.indexOf(b[0]);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? priority.length : ai) - (bi === -1 ? priority.length : bi);
+      return b[1] - a[1];
+    }); (p[key] || []).forEach(v => { if (!Object.prototype.hasOwnProperty.call(counts, v)) ents.push([v, 0]); });
     if (!ents.length) return '';
     const rows = ents.map(([v, n], i) => `<label class="jb-chk ${i >= limit ? 'more' : ''}"><input type="checkbox" data-f="${key}" value="${E(v)}" ${p[key].includes(v) ? 'checked' : ''}><span>${E(labelOf ? labelOf(v) : v)}</span><em>(${n})</em></label>`).join('');
     return `<details class="jb-fs" ${open || p[key].length ? 'open' : ''}><summary>${title}${p[key].length ? ` <i class="jb-cnt">${p[key].length}</i>` : ''}</summary><div class="jb-fb">${rows}${ents.length > limit ? `<button type="button" class="link-btn jb-more" data-action="jb-more">View more</button>` : ''}</div></details>`;
@@ -329,7 +333,7 @@
     const fresh = `<details class="jb-fs" ${p.fresh ? 'open' : ''}><summary>Freshness${p.fresh ? ' <i class="jb-cnt">1</i>' : ''}</summary><div class="jb-fb">${FRESH.map(f => `<label class="jb-chk"><input type="radio" name="fresh" data-f="fresh" value="${f[0]}" ${p.fresh === f[0] ? 'checked' : ''}><span>${f[1]}</span><em>(${frCounts[f[0]] || 0})</em></label>`).join('')}${p.fresh ? '<button type="button" class="link-btn jb-more" data-action="jb-unfresh">Clear</button>' : ''}</div></details>`;
     const exps = `<details class="jb-fs" open><summary>Experience</summary><div class="jb-fb"><div class="jb-range"><b id="jb-exv">${p.exp === '' ? 'Any' : (+p.exp === 0 ? 'Fresher' : p.exp + (+p.exp === 1 ? ' year' : ' years'))}</b><input type="range" min="0" max="30" step="1" value="${ex}" data-f="exp" aria-label="Experience in years" ${p.exp === '' ? 'class="untouched"' : ''}><div class="jb-ticks"><span>0</span><span>10</span><span>20</span><span>30</span></div>${p.exp !== '' ? '<button type="button" class="link-btn jb-more" data-action="jb-unexp">Clear</button>' : ''}</div></div></details>`;
     return `<div class="jb-fhead"><h3>All Filters</h3><button type="button" class="link-btn" data-action="jb-clear">Clear all</button><button type="button" class="icon-btn jb-fclose" data-action="jb-fx" aria-label="Close filters">${I('x', 20)}</button></div><div class="jb-fscroll">
-      ${facetBox('Work mode', 'mode', p, facet(p, 'mode', j => j.workMode))}${exps}${facetBox('Department', 'dept', p, facet(p, 'dept', j => j.department))}${facetBox('Salary', 'sal', p, salCounts, v => (SAL.find(s => s[0] === v) || [])[1] || v)}${facetBox('Location', 'city', p, facet(p, 'city', j => j.city))}${facetBox('Companies', 'company', p, facet(p, 'company', j => j.companyId), v => (PL.q.company(v) || {}).name || v, false)}${fresh}${facetBox('Employment type', 'type', p, facet(p, 'type', j => j.type), null, false)}${facetBox('Education', 'qual', p, facet(p, 'qual', j => j.qualification), null, false)}${facetBox('Industry', 'ind', p, facet(p, 'ind', j => co(j).industry), null, false)}</div>
+      ${facetBox('Work mode', 'mode', p, facet(p, 'mode', j => j.workMode))}${exps}${facetBox('Department', 'dept', p, facet(p, 'dept', j => j.department))}${facetBox('Salary', 'sal', p, salCounts, v => (SAL.find(s => s[0] === v) || [])[1] || v)}${facetBox('Location', 'city', p, facet(p, 'city', j => j.city))}${facetBox('Companies', 'company', p, facet(p, 'company', j => j.companyId), v => (PL.q.company(v) || {}).name || v, false)}${fresh}${facetBox('Employment type', 'type', p, Object.assign({ 'Full-time': 0, 'Part-time': 0 }, facet(p, 'type', j => j.type)), null, false, 6, ['Full-time', 'Part-time'])}${facetBox('Education', 'qual', p, facet(p, 'qual', j => j.qualification), null, false)}${facetBox('Industry', 'ind', p, facet(p, 'ind', j => co(j).industry), null, false)}</div>
       <div class="jb-fapply"><button type="button" class="btn btn-block" data-action="jb-fx">Show results</button></div>`;
   };
   const MOBILE_FACETS = [
@@ -340,7 +344,7 @@
     ['sal', 'Salary'],
     ['company', 'Companies'],
     ['ind', 'Industries'],
-    ['type', 'Role'],
+    ['type', 'Employment type'],
     ['qual', 'Education'],
     ['fresh', 'Freshness']
   ];
@@ -363,7 +367,14 @@
       counts = facet(p, key, j => j.companyId);
       labelOf = v => (PL.q.company(v) || {}).name || v;
     } else counts = facet(p, key, j => ({ mode: j => j.workMode, dept: j => j.department, city: j => j.city, ind: j => co(j).industry, type: j => j.type, qual: j => j.qualification }[key] || (() => ''))(j));
-    const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
+    if (key === 'type') { counts['Full-time'] = counts['Full-time'] || 0; counts['Part-time'] = counts['Part-time'] || 0; }
+    const entries = Object.entries(counts || {}).sort((a, b) => {
+      if (key === 'type') {
+        const priority = ['Full-time', 'Part-time'], ai = priority.indexOf(a[0]), bi = priority.indexOf(b[0]);
+        if (ai !== -1 || bi !== -1) return (ai === -1 ? priority.length : ai) - (bi === -1 ? priority.length : bi);
+      }
+      return b[1] - a[1];
+    });
     (p[key] || []).forEach(value => { if (!entries.some(x => x[0] === value)) entries.push([value, 0]); });
     if (!entries.length) return '<p class="jb-mobile-empty">No options available for this search.</p>';
     return entries.map(([value, count]) => `<label class="jb-mobile-choice"><input type="checkbox" data-mobile-f="${key}" value="${E(value)}" ${p[key].includes(value) ? 'checked' : ''}><span>${E(labelOf ? labelOf(value) : value)}</span><em>${count}</em></label>`).join('');

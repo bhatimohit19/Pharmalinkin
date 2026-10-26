@@ -2,6 +2,8 @@
 (function () {
   const PL = (window.PL = window.PL || {});
   const KEY = 'pharmalinkin_demo_v3', VERSION = 3, DAY = 864e5;
+  const DEMO_CANDIDATE_PHOTO = 'assets/demo-candidate-avatar.svg';
+  const DEMO_CANDIDATE_COVER = 'assets/demo-candidate-banner.svg';
   const BASE = new Date(); BASE.setMinutes(0, 0, 0);
   const ago = (d, h = 0) => { if (d && typeof d === 'object') { h = d.h || h; d = d.d || 0; } return new Date(BASE.getTime() - d * DAY - h * 36e5).toISOString(); };
   const ahead = d => new Date(BASE.getTime() + d * DAY).toISOString().slice(0, 10);
@@ -255,7 +257,13 @@
     s.follows = { u1: { users: ['u2', 'r1'], companies: ['c1', 'c4'] } };
     s.hiddenAds = {}; s.savedCandidates = { r1: ['u2', 'u10'] }; s.unlocked = { r1: [] };
     s.signedUp = {};
-    s.users.forEach(x => { if (x.id === 'u1') Object.assign(x.profile, demoProfile(x.profile)); });
+    s.users.forEach(x => {
+      if (x.id === 'u1') {
+        Object.assign(x.profile, demoProfile(x.profile));
+        x.photo = x.photo || DEMO_CANDIDATE_PHOTO;
+        x.profile.coverImg = x.profile.coverImg || DEMO_CANDIDATE_COVER;
+      }
+    });
     return s;
   }
   PL.seed = seed;
@@ -266,7 +274,14 @@
     load() {
       let data = null;
       try { const raw = localStorage.getItem(KEY); if (raw) { data = JSON.parse(raw); if (!data || data.version !== VERSION || !Array.isArray(data.users) || !Array.isArray(data.jobs)) data = null; } } catch (e) { data = null; }
-      this.s = data || seed(); this.s.users.forEach(x => { if (x.id === 'u1' && x.name === 'Aarav Mehta') { x.name = 'Mohit Bhati'; Object.assign(x.profile, demoProfile(x.profile)); } });
+      this.s = data || seed(); this.s.users.forEach(x => {
+        if (x.id === 'u1') {
+          if (x.name === 'Aarav Mehta') { x.name = 'Mohit Bhati'; Object.assign(x.profile, demoProfile(x.profile)); }
+          x.profile = x.profile || {};
+          x.photo = x.photo || DEMO_CANDIDATE_PHOTO;
+          x.profile.coverImg = x.profile.coverImg || DEMO_CANDIDATE_COVER;
+        }
+      });
       this.save();
       return this.s;
     },

@@ -72,7 +72,7 @@
     const mapKey = { '/app/dashboard': '/app/feed', '/app/applications': '/app/jobs', '/app/saved-jobs': '/app/jobs', '/app/job-alerts': '/app/jobs' }[actKey] || actKey;
     const cta = u.role === 'candidate' ? null : ({ recruiter: ['Post a job', '/employer/jobs/new'], advertiser: ['New campaign', '/advertiser/campaigns/new'] }[u.role] || ['Dashboard', PL.auth.homeFor(u)]);
     const profileAction = ctx.path === '/app/profile' && !ctx.query.preview
-      ? `<a href="#/app/profile/edit" aria-label="Edit profile">${I('edit', 18)}</a>`
+      ? '<span aria-hidden="true"></span>'
       : ctx.path === '/app/profile/experience' ? `<a href="#/app/profile/experience/new?return=profile" aria-label="Add experience">${I('plus', 19)}</a>`
         : `<a href="#/app/profile" aria-label="View My Profile">${I('user', 18)}</a>`;
     const header = candidateProfile

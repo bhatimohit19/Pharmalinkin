@@ -11,6 +11,8 @@
 .cp-avatar>.avatar{width:70px!important;height:70px!important}
 .cp-photo-btn{position:absolute;right:-2px;bottom:-2px;width:27px;height:27px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;background:#0879E8;color:#fff;cursor:pointer}
 .cp-hero h1{margin:9px 0 2px;color:#102F59;font-size:1.18rem}
+.cp-name-edit{display:inline-grid;width:25px;height:25px;place-items:center;border:1px solid #D5E4F3;border-radius:50%;color:#0879E8;vertical-align:middle}
+.cp-name-edit:hover{background:#EFF7FF;text-decoration:none}
 .cp-title{margin:0;font-size:.9rem;font-weight:650}
 .cp-headline{margin:2px 0;color:var(--text-2);font-size:.81rem}
 .cp-location{display:flex;align-items:center;gap:5px;margin-top:6px;color:var(--muted);font-size:.78rem}

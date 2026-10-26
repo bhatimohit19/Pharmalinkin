@@ -28,7 +28,7 @@
     setSession(id, remember) { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); (remember ? localStorage : sessionStorage).setItem('pl_session', id); }); },
     logout() { safe(() => { sessionStorage.removeItem('pl_session'); localStorage.removeItem('pl_session'); }); },
     roleLabel: r => ROLE_LABEL[r] || r,
-    homeFor(u) { if (u && u.role === 'recruiter' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/employer/dashboard' : '/employer/onboarding'; if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/dashboard' : '/onboarding'; return !u ? '/' : { candidate: '/app/dashboard', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
+    homeFor(u) { if (u && u.role === 'recruiter' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/employer/dashboard' : '/employer/onboarding'; if (u && u.role === 'candidate' && PL.onboardingOnly()) return u.profile && u.profile.onboarded ? '/job-results' : '/onboarding'; return !u ? '/' : { candidate: '/job-results', recruiter: '/employer/dashboard', advertiser: '/advertiser/dashboard', admin: '/admin/dashboard' }[u.role] || '/'; },
     requireLogin(next, msg = 'Please sign in to continue.') { safe(() => sessionStorage.setItem(NEXT_KEY, next || '')); ui().toast(msg, 'info'); PL.go('/login'); },
     takeNext() { const n = safe(() => sessionStorage.getItem(NEXT_KEY)); safe(() => sessionStorage.removeItem(NEXT_KEY)); return n; },
     hasNext() { return !!safe(() => sessionStorage.getItem(NEXT_KEY)); },
