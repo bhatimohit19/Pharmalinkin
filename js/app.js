@@ -32,7 +32,7 @@
       return '';
     };
     const roots = new Set(['/', '/app/profile', '/app/feed', '/app/dashboard', '/job-search', '/dashboard', '/login', '/register', '/onboarding', '/jobs', '/companies', '/news', '/pricing']);
-    if (!previous || roots.has(path) || !flow(path) || flow(path) !== flow(previous)) return '';
+    if (!previous || roots.has(path) || /^\/job\//.test(path) || !flow(path) || flow(path) !== flow(previous)) return '';
     return `<div class="mobile-backbar"><button type="button" class="mobile-back-button" data-action="history-back">${I('left', 18)}<span>Back</span></button></div>`;
   };
   PL.brandHtml = brand; PL.profileMenu = profileMenu; PL.footerHtml = () => footer(); PL.mobileBackbar = mobileBackbar;

@@ -328,7 +328,8 @@
   .jb-results-screen .jb-rh{gap:8px;margin-bottom:12px}
   .jb-results-screen .jb-count{font-size:.84rem}
   .jb-results-screen .jb-count b{display:block;margin:2px 0 0;font-size:.92rem}
-  .jb-results-screen .jb-rt{display:none}
+  .jb-results-screen .jb-rt{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px}
+  .jb-results-screen .jb-rt>.link-btn{display:none}
   .jb-results-screen .jb-applied{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}
   .jb-results-screen .jb-list{gap:12px}
   .jb-results-screen .jb-card{padding:15px;border-radius:18px;box-shadow:0 2px 9px rgba(16,24,40,.045)}

@@ -5,6 +5,7 @@
   const PER = 8;
   const SAL = [['0-3', '0-3 Lakhs', 0, 3], ['3-6', '3-6 Lakhs', 3, 6], ['6-10', '6-10 Lakhs', 6, 10], ['10-15', '10-15 Lakhs', 10, 15], ['15+', '15+ Lakhs', 15, 999]];
   const FRESH = [['1', 'Last 1 day'], ['3', 'Last 3 days'], ['7', 'Last 7 days'], ['15', 'Last 15 days'], ['30', 'Last 30 days']];
+  const FACET_SEARCH_MIN = 7;
   const CSV = ['mode', 'dept', 'type', 'qual', 'sal', 'city', 'ind', 'company'];
   const co = j => PL.q.company(j.companyId) || { name: '', industry: '' };
   const days = j => Math.max(0, Math.floor((Date.now() - new Date(j.createdAt)) / 864e5));
@@ -21,7 +22,7 @@
   const match = (j, p, skip) => {
     const c = co(j), qq = lc(p.q).trim(), ll = lc(p.loc).trim();
     if (qq) { const hay = lc([j.title, j.department, c.name, (j.skills || []).join(' '), j.qualification, j.city, j.location, (j.locations || []).join(' ')].join(' ')); if (!qq.split(/[\s,]+/).filter(Boolean).every(w => wordHit(hay, w))) return false; }
-    if (ll && !lc(j.location + ' ' + (j.locations || []).join(' ')).includes(ll)) return false;
+    if (ll && !lc([j.location, j.city, j.state, j.country, ...(j.locations || [])].join(' ')).includes(ll)) return false;
     if (skip !== 'exp' && p.exp !== '' && !(j.expMin <= +p.exp && +p.exp <= j.expMax)) return false;
     if (skip !== 'fresh' && p.fresh && days(j) > +p.fresh) return false;
     if (skip !== 'mode' && p.mode.length && !p.mode.includes(j.workMode)) return false;
@@ -35,14 +36,61 @@
     return true;
   };
   const score = (j, p) => { const qq = lc(p.q).trim(); let s = j.featured ? 2 : 0; if (qq) { const t = lc(j.title); qq.split(/[\s,]+/).filter(Boolean).forEach(w => { if (t.includes(w)) s += 5; if ((j.skills || []).some(x => lc(x).includes(w))) s += 3; if (lc(j.department).includes(w)) s += 2; if (lc(co(j).name).includes(w)) s += 2; }); } return s - days(j) / 100; };
-  const run = p => PL.q.publicJobs().filter(j => match(j, p)).sort(p.sort === 'date' ? (a, b) => new Date(b.createdAt) - new Date(a.createdAt) : (a, b) => score(b, p) - score(a, p));
+  const run = p => PL.q.publicJobs().filter(j => match(j, p)).sort(p.sort === 'date'
+    ? (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    : p.sort === 'city'
+      ? (a, b) => a.city.localeCompare(b.city) || a.state.localeCompare(b.state) || a.title.localeCompare(b.title)
+      : p.sort === 'state'
+        ? (a, b) => a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.title.localeCompare(b.title)
+        : (a, b) => score(b, p) - score(a, p) || a.title.localeCompare(b.title));
   const facet = (p, key, get) => { const m = {}; PL.q.publicJobs().filter(j => match(j, p, key)).forEach(j => { const v = get(j); if (v) m[v] = (m[v] || 0) + 1; }); return m; };
+  const locationState = city => [...new Set(PL.q.publicJobs().filter(j => j.city === city).map(j => j.state).filter(Boolean))].sort().join(', ');
+  const facetOptionLabel = (key, value) => key === 'company' ? ((PL.q.company(value) || {}).name || value) : value;
+  const facetSort = key => (PL.state.jbFacetSorts || {})[key] || 'count';
+  const sortFacetEntries = (key, entries) => entries.sort((a, b) => {
+    if (key === 'type' && facetSort(key) === 'count') {
+      const priority = ['Full-time', 'Part-time'], ai = priority.indexOf(a[0]), bi = priority.indexOf(b[0]);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? priority.length : ai) - (bi === -1 ? priority.length : bi);
+    }
+    if (key === 'city' && facetSort(key) === 'state') return locationState(a[0]).localeCompare(locationState(b[0])) || a[0].localeCompare(b[0]);
+    if (facetSort(key) === 'alpha') return facetOptionLabel(key, a[0]).localeCompare(facetOptionLabel(key, b[0]));
+    return b[1] - a[1] || facetOptionLabel(key, a[0]).localeCompare(facetOptionLabel(key, b[0]));
+  });
+  const isSearchableFacet = (key, count) => key === 'city' || count >= FACET_SEARCH_MIN;
+  const facetTools = (key, entries) => {
+    if (!isSearchableFacet(key, entries.length)) return '';
+    const sorts = key === 'city' ? [['count', 'Most jobs'], ['city', 'City A–Z'], ['state', 'State A–Z']] : [['count', 'Most jobs'], ['alpha', 'A–Z']];
+    const search = (PL.state.jbFacetSearches || {})[key] || '';
+    const name = key === 'city' ? 'locations' : key === 'company' ? 'companies' : key === 'qual' ? 'education' : key === 'dept' ? 'departments' : key;
+    return `<div class="jb-facet-tools"><label class="jb-facet-search"><span>${I('search', 16)}</span><input type="search" data-facet-search="${E(key)}" value="${E(search)}" placeholder="Search ${E(name)}" aria-label="Search ${E(name)}" autocomplete="off"></label><label class="jb-facet-sort"><span>Sort by</span><select data-facet-sort="${E(key)}" aria-label="Sort ${E(name)}">${sorts.map(([value, label]) => `<option value="${value}" ${facetSort(key) === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+  };
+  const facetQuery = key => lc(((PL.state.jbFacetSearches || {})[key] || '').trim());
+  const facetMatches = (key, value, label) => {
+    const term = facetQuery(key);
+    return !term || lc(`${label} ${value} ${key === 'city' ? locationState(value) : ''}`).includes(term);
+  };
+  const locationLabel = city => `<span><b>${E(city)}</b>${locationState(city) ? `<small>${E(locationState(city))}</small>` : ''}</span>`;
+  const facetRowData = (key, value, label, count) => `data-facet-row="${E(key)}" data-facet-value="${E(value)}" data-facet-label="${E(label)}" data-facet-count="${count}"${key === 'city' ? ` data-city="${E(value)}" data-state="${E(locationState(value))}"` : ''}`;
 
   /* ---------- search bar ---------- */
-  const EXPS = ['Fresher', ...Array.from({ length: 30 }, (_, i) => i + 1 + (i ? ' years' : ' year'))];
-  const expSel = v => `<select name="exp" aria-label="Experience"><option value="">Experience</option>${EXPS.map((x, i) => `<option value="${i}" ${String(v) === String(i) && v !== '' ? 'selected' : ''}>${i ? x : 'Fresher (0 years)'}</option>`).join('')}</select>`;
-  const searchBar = p => `<form data-form="jb-search" class="jb-bar" role="search" autocomplete="off"><div class="jb-f jb-f-q"><span class="jb-ic">${I('search', 18)}</span><input class="jb-q" name="q" value="${E(p.q)}" placeholder="Enter skills / designations / companies" aria-label="Search jobs"><div class="jb-sugg" hidden></div></div><div class="jb-f jb-f-e">${expSel(p.exp)}</div><div class="jb-f jb-f-l"><span class="jb-ic">${I('pin', 18)}</span><input name="loc" value="${E(p.loc)}" placeholder="Enter location" aria-label="Location"></div><button class="btn jb-go" type="submit">Search</button></form>`;
-  PL.form('jb-search', f => nav({ ...parse({}), q: f.q.value.trim(), loc: f.loc.value.trim(), exp: f.exp.value }));
+  const searchBar = (p, cls = '') => `<form data-form="jb-search" class="jb-bar ${cls}" role="search" autocomplete="off"><div class="jb-f jb-f-q"><span class="jb-ic">${I('search', 18)}</span><input class="jb-q" name="q" value="${E(p.q)}" placeholder="Enter job title, skills or company" aria-label="Job title, skills or company"><div class="jb-sugg" hidden></div></div><div class="jb-f jb-f-l"><span class="jb-ic">${I('pin', 18)}</span><input name="loc" value="${E(p.loc)}" placeholder="Enter city or state" aria-label="City or state"></div><button class="btn jb-go" type="submit">Search jobs</button></form>`;
+  const rememberSearch = (q, loc) => {
+    if (!q && !loc) return;
+    const history = db().recentJobSearches || [];
+    const key = value => lc(value).trim();
+    db().recentJobSearches = [{ q, loc }, ...history.filter(x => key(x.q) !== key(q) || key(x.loc) !== key(loc))].slice(0, 6);
+    PL.store.save();
+  };
+  PL.form('jb-search', f => {
+    const q = f.q.value.trim(), loc = f.loc.value.trim();
+    rememberSearch(q, loc);
+    if (!q && !loc) PL.go('/job-results?browse=1');
+    else nav({ ...parse({}), q, loc });
+  });
+  PL.act('jb-recent-search', (d, el) => {
+    const search = JSON.parse(el.dataset.search || '{}');
+    nav({ ...parse({}), q: search.q || '', loc: search.loc || '' });
+  });
 
   let sugCache;
   const suggestions = () => { if (sugCache) return sugCache; const s = new Set(); PL.q.publicJobs().forEach(j => { s.add(j.title); s.add(j.department); s.add(j.city); (j.skills || []).forEach(x => s.add(x)); s.add(co(j).name); }); return (sugCache = [...s].filter(Boolean)); };
@@ -278,7 +326,7 @@
       admin: { home: '/', jobs: '/admin/jobs', post: '', dashboard: '/admin/dashboard' }
     };
     const links = routes[role] || { home: '/', jobs: '/job-results', post: '/login', dashboard: '/login' };
-    const isJobs = role === 'candidate' ? /^\/(job-results|job\/|saved-jobs|my-applications)/.test(path) : path === links.jobs || path.startsWith(links.jobs + '/');
+    const isJobs = role === 'candidate' ? /^\/(job-search|job-results|job\/|saved-jobs|my-applications)/.test(path) : path === links.jobs || path.startsWith(links.jobs + '/');
     const isDashboard = path === links.dashboard || (role !== 'candidate' && path.startsWith(links.dashboard + '/'));
     const isHome = path === links.home;
     const isPost = !!links.post && path === links.post;
@@ -286,32 +334,32 @@
     const post = links.post ? `<a class="jb-mobile-item jb-post-item ${isPost ? 'active' : ''}" href="#${links.post}" aria-label="${role === 'recruiter' ? 'Post a job' : role === 'advertiser' ? 'Create campaign' : role === 'candidate' ? 'Create post' : 'Post'}"><span class="jb-post-plus">${I('plus', 23)}</span><span>${role === 'recruiter' ? 'Post Job' : role === 'advertiser' ? 'Campaign' : 'Post'}</span></a>` : `<button type="button" class="jb-mobile-item" data-action="jb-post-denied"><span class="jb-post-plus">${I('plus', 23)}</span><span>Post</span></button>`;
     return `<nav class="jb-mobile-nav" aria-label="Mobile primary navigation">${item('Home', links.home, 'home', isHome)}${item('Jobs', links.jobs, 'briefcase', isJobs)}${post}<button type="button" class="jb-mobile-item" data-action="jb-social"><span class="jb-mobile-icon">${I('globe', 20)}</span><span>Social</span></button>${item(role === 'candidate' ? 'Dashboard' : 'Dashboard', links.dashboard, 'dash', isDashboard)}</nav>`;
   };
-  R.add('/job-search', () => {
-    const u = me(), jobs = PL.q.publicJobs(), cand = u && u.role === 'candidate', pr = (u && u.profile) || {};
-    const pct = cand ? PL.q.completion(u).pct : 0, ex = (pr.experience || [])[0] || {};
-    const applications = cand ? PL.q.syncLegacyApplications(u.id) : [];
-    const appliedJobs = applications.map(a => PL.q.job(a.jobId)).filter(Boolean);
-    const rec = recommended(u), like = jobs.filter(j => !rec.includes(j)).slice(0, 8);
-    const pv = pr.preferences || {}, pl = (pv.locations || []).map(lc), pro = (pv.roles || []).map(lc), prefJobs = cand ? jobs.filter(j => (pl.length && pl.some(l => lc(j.city).includes(l))) || (pro.length && pro.some(r => lc(j.title + ' ' + j.department).includes(r)))).slice(0, 8) : [];
-    const tabs = [['app', 'Applies', appliedJobs], ['rec', 'Profile', rec], ['like', 'You might like', like], ['pref', 'Preferences', prefJobs]];
-    if (tab === 'app' && !appliedJobs.length) tab = 'rec';
-    const cur = tabs.find(x => x[0] === tab) || tabs[1];
-    const early = jobs.filter(j => j.featured).concat(jobs).filter((j, i, a) => a.indexOf(j) === i).slice(0, 6);
-    const ring = `<div class="jb-ring" style="--p:${pct}"><div class="jb-ring-in">${ui().avatar(u || { name: 'U' }, 92)}</div><span>${pct}%</span></div>`;
-    return `<div class="jb-3"><aside class="jb-left">
-      <div class="jb-pcard">${ring}<h2>${E(u ? u.name : 'Guest')}</h2><div class="jb-sub">${E(pr.headline || '')}${ex.company ? ' @ ' + E(ex.company) : ''}</div><div class="xs muted">Last updated today</div><a class="btn jb-rbtn" href="#/dashboard">${cand ? 'My dashboard' : 'Sign in'}</a></div>
-      <a class="jb-perf jb-perf-link" href="#/app/profile/analytics"><h3>Profile analytics</h3><div class="jb-perf-g"><div><span>Profile views</span><b>${Number(pr.views) || 0}</b></div><div><span>Search appearances</span><b>${Number(pr.searchAppearances) || 0}</b></div></div><small>Resume downloads: ${Number(pr.resumeDownloads) || 0}</small></a>
-      <nav class="jb-side" aria-label="Sections"><a class="on" href="#/job-search">${I('home', 20)} My home</a><a href="#/job-results">${I('briefcase', 20)} Jobs</a>${cand ? `<a href="#/my-applications">${I('file', 20)} Applications</a><a href="#/saved-jobs">${I('bookmark', 20)} Saved</a>` : ''}<button data-action="jb-soon">${I('building', 20)} Companies</button><button data-action="jb-soon">${fileIc} Blogs</button></nav></aside>
-      <div class="jb-center">
-        <section class="jb-panel"><div class="jb-sh"><h2>Recommended jobs for you</h2><a href="#/job-results">View all</a></div>
-          <div class="jb-tabs" role="tablist">${tabs.map(x => `<button role="tab" aria-selected="${x[0] === tab}" class="${x[0] === tab ? 'on' : ''}" data-action="jb-tab" data-t="${x[0]}">${x[1]} (${x[2].length})</button>`).join('')}</div>
-          <div class="jb-scroll">${cur[2].length ? cur[2].map(mini).join('') : `<div class="jb-empty">${tab === 'pref' ? 'Set job preferences to see matches here.' : 'Nothing here yet.'}</div>`}</div></section>
-        <section class="jb-panel"><div class="jb-sh"><div class="row nowrap"><span class="jb-ea">${I('zap', 28)}</span><div><h2>${early.length} Early access roles from top companies</h2><div class="muted small">See what recruiters are searching for, even before they post a job</div></div></div><a href="#/job-results">View all</a></div>
-          <div class="jb-scroll">${early.map(j => { const c = co(j), rt = rating(j); return `<a class="jb-early" href="#/job/${j.id}"><div class="row between nowrap"><b>${E(j.title)}</b><span class="xs muted">${ago(j)}</span></div><div class="muted">${E(c.name)}</div><div class="jb-tags"><span>${star} ${rt.r}+</span><span>${E(c.industry)}</span></div><div class="jb-meta"><span>${I('briefcase', 14)}${expTxt(j)}</span><span>${I('rupee', 14)}${salTxt(j)}</span><span>${I('pin', 14)}${E(j.city)}</span></div></a>`; }).join('')}</div></section>
-      </div>
-      <aside class="jb-right"><div class="jb-promo"><div class="jb-promo-t">Explore top career content</div><div class="jb-promo-art"><b>Don&rsquo;t wait.<br>Move first.</b></div><button class="btn jb-rbtn" data-action="jb-soon">${I('arrow', 14)} Explore tips</button></div>
-        <div class="jb-promo jb-safe">${I('shield', 44)}<h3>Never pay anyone to get a job</h3><p class="muted">Fraudsters may ask you to invest money either to earn more OR to get you a job. Never make such payments.</p><a href="#/page/help">Learn more</a></div></aside></div>`;
-  }, { layout: 'jobs', title: 'Find jobs' });
+  const searchHome = () => {
+    const jobs = PL.q.publicJobs().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const recent = db().recentJobSearches || [];
+    const featuredJobs = jobs.filter(j => j.featured);
+    const openJobs = jobs.filter(j => !j.featured);
+    const featuredCompanyIds = [...new Set(featuredJobs.map(j => j.companyId))];
+    const jobCounts = jobs.reduce((counts, job) => { counts[job.companyId] = (counts[job.companyId] || 0) + 1; return counts; }, {});
+    const featuredCompanies = featuredCompanyIds.map(id => PL.q.company(id)).filter(Boolean).slice(0, 6);
+    const topCompanies = Object.keys(jobCounts).sort((a, b) => jobCounts[b] - jobCounts[a] || ((PL.q.company(a) || {}).name || '').localeCompare((PL.q.company(b) || {}).name || '')).map(id => PL.q.company(id)).filter(Boolean).slice(0, 6);
+    const companyCard = company => `<a class="jb-company-tile" href="#/companies/${company.id}">${ui().logo(company, 56)}<b>${E(company.name)}</b><span>${E(company.industry)}</span><small>${jobCounts[company.id] || 0} open ${(jobCounts[company.id] || 0) === 1 ? 'role' : 'roles'}</small></a>`;
+    const jobSection = (title, description, rows, more = true) => rows.length ? `<section class="jb-home-section"><div class="jb-home-section-head"><div><h2>${title}</h2><p>${description}</p></div>${more ? '<a href="#/job-results?browse=1">View all</a>' : ''}</div><div class="jb-scroll jb-home-job-list">${rows.map(mini).join('')}</div></section>` : '';
+    const featuredPreview = featuredJobs.slice(0, 4);
+    const openPreview = openJobs.slice(0, 4);
+    const otherPreview = openJobs.slice(4, 8);
+    const user = me();
+    return `<div class="jb-search-home">
+      <section class="jb-search-hero"><p>${user ? `Hey ${E(user.name)},` : 'Welcome to PharmaLinkIn'}</p><h1>Find your next opportunity</h1>${searchBar(parse({}), 'jb-home-search')}</section>
+      ${recent.length ? `<section class="jb-home-section jb-recent-section"><div class="jb-home-section-head"><div><h2>Your recent searches</h2><p>Pick up where you left off.</p></div></div><div class="jb-recent-list">${recent.map(search => { const label = [search.q, search.loc].filter(Boolean).join(' · '); return `<button type="button" class="jb-recent-item" data-action="jb-recent-search" data-search="${E(JSON.stringify(search))}">${I('clock', 16)}<span>${E(label)}</span></button>`; }).join('')}</div></section>` : ''}
+      ${featuredCompanies.length ? `<section class="jb-home-section"><div class="jb-home-section-head"><div><h2>Featured companies</h2><p>Companies with featured roles.</p></div><a href="#/companies">View all</a></div><div class="jb-company-list">${featuredCompanies.map(companyCard).join('')}</div></section>` : ''}
+      <section class="jb-home-section"><div class="jb-home-section-head"><div><h2>Top companies</h2><p>Explore employers with the most open roles.</p></div><a href="#/companies">View all</a></div><div class="jb-company-list">${topCompanies.map(companyCard).join('')}</div></section>
+      ${jobSection('Explore open jobs', 'Browse current opportunities and apply directly at no cost.', openPreview)}
+      ${jobSection('Featured jobs', 'Highlighted opportunities from employers.', featuredPreview)}
+      ${jobSection('More jobs to explore', 'Discover more open roles across the pharma industry.', otherPreview)}
+    </div>`;
+  };
+  R.add('/job-search', searchHome, { layout: 'jobs', title: 'Find jobs' });
 
 
 
@@ -323,8 +371,14 @@
       return b[1] - a[1];
     }); (p[key] || []).forEach(v => { if (!Object.prototype.hasOwnProperty.call(counts, v)) ents.push([v, 0]); });
     if (!ents.length) return '';
-    const rows = ents.map(([v, n], i) => `<label class="jb-chk ${i >= limit ? 'more' : ''}"><input type="checkbox" data-f="${key}" value="${E(v)}" ${p[key].includes(v) ? 'checked' : ''}><span>${E(labelOf ? labelOf(v) : v)}</span><em>(${n})</em></label>`).join('');
-    return `<details class="jb-fs" ${open || p[key].length ? 'open' : ''}><summary>${title}${p[key].length ? ` <i class="jb-cnt">${p[key].length}</i>` : ''}</summary><div class="jb-fb">${rows}${ents.length > limit ? `<button type="button" class="link-btn jb-more" data-action="jb-more">View more</button>` : ''}</div></details>`;
+    sortFacetEntries(key, ents);
+    const hasQuery = !!facetQuery(key);
+    const hasMatches = ents.some(([value]) => facetMatches(key, value, labelOf ? labelOf(value) : value));
+    const rows = ents.map(([v, n], i) => {
+      const label = labelOf ? labelOf(v) : v;
+      return `<label class="jb-chk ${i >= limit ? 'more' : ''}" ${facetRowData(key, v, label, n)} ${facetMatches(key, v, label) ? '' : 'hidden'}><input type="checkbox" data-f="${key}" value="${E(v)}" ${p[key].includes(v) ? 'checked' : ''}>${key === 'city' ? locationLabel(v) : `<span>${E(label)}</span>`}<em>(${n})</em></label>`;
+    }).join('');
+    return `<details class="jb-fs" ${open || p[key].length ? 'open' : ''}><summary>${title}${p[key].length ? ` <i class="jb-cnt">${p[key].length}</i>` : ''}</summary><div class="jb-fb ${hasQuery ? 'facet-searching' : ''}">${facetTools(key, ents)}${rows}<p class="jb-facet-empty" ${hasQuery && !hasMatches ? '' : 'hidden'}>No matching options. Try another search.</p>${ents.length > limit ? `<button type="button" class="link-btn jb-more" data-action="jb-more">View more</button>` : ''}</div></details>`;
   };
   const filters = p => {
     const salCounts = {}; PL.q.publicJobs().filter(j => match(j, p, 'sal')).forEach(j => SAL.forEach(s => { if (j.salMax >= s[2] && j.salMin <= s[3]) salCounts[s[0]] = (salCounts[s[0]] || 0) + 1; }));
@@ -373,11 +427,15 @@
         const priority = ['Full-time', 'Part-time'], ai = priority.indexOf(a[0]), bi = priority.indexOf(b[0]);
         if (ai !== -1 || bi !== -1) return (ai === -1 ? priority.length : ai) - (bi === -1 ? priority.length : bi);
       }
-      return b[1] - a[1];
+      return b[1] - a[1] || a[0].localeCompare(b[0]);
     });
     (p[key] || []).forEach(value => { if (!entries.some(x => x[0] === value)) entries.push([value, 0]); });
+    sortFacetEntries(key, entries);
     if (!entries.length) return '<p class="jb-mobile-empty">No options available for this search.</p>';
-    return entries.map(([value, count]) => `<label class="jb-mobile-choice"><input type="checkbox" data-mobile-f="${key}" value="${E(value)}" ${p[key].includes(value) ? 'checked' : ''}><span>${E(labelOf ? labelOf(value) : value)}</span><em>${count}</em></label>`).join('');
+    return `${facetTools(key, entries)}${entries.map(([value, count]) => {
+      const label = labelOf ? labelOf(value) : value;
+      return `<label class="jb-mobile-choice" ${facetRowData(key, value, label, count)}><input type="checkbox" data-mobile-f="${key}" value="${E(value)}" ${p[key].includes(value) ? 'checked' : ''}>${key === 'city' ? locationLabel(value) : `<span>${E(label)}</span>`}<em>${count}</em></label>`;
+    }).join('')}`;
   };
   const mobileFilterSheet = p => {
     const active = PL.state.jbMobileFacet || 'mode';
@@ -400,15 +458,50 @@
       else if (!selected && indicator) indicator.remove();
     });
     root.querySelector('#jb-mobile-filter-options').innerHTML = mobileFacetOptions(p, PL.state.jbMobileFacet);
+    const facetSearch = root.querySelector('[data-facet-search]');
+    if (facetSearch) filterFacetRows(facetSearch);
   };
   const updateMobileFilterCount = () => {
     const button = document.querySelector('.jb-mobile-filter-sheet [data-action="jb-mobile-apply"]');
     if (button) button.textContent = `Apply (${run(PL.state.jbMobileDraft || current()).length})`;
   };
-  const collect = () => { const p = parse({}), root = document.getElementById('jb-filters'), bar = document.querySelector('.jb-bar'); if (bar) { p.q = bar.q.value.trim(); p.loc = bar.loc.value.trim(); p.exp = bar.exp.value; } p.sort = (document.getElementById('jb-sort') || {}).value || 'rel'; CSV.forEach(k => (p[k] = [...root.querySelectorAll(`input[type=checkbox][data-f="${k}"]:checked`)].map(i => i.value))); const fr = root.querySelector('input[data-f="fresh"]:checked'); p.fresh = fr ? fr.value : ''; return p; };
+  const collect = () => { const p = parse({}), root = document.getElementById('jb-filters'), bar = document.querySelector('.jb-bar'); if (bar) { p.q = bar.q.value.trim(); p.loc = bar.loc.value.trim(); } p.sort = (document.getElementById('jb-sort') || {}).value || 'rel'; CSV.forEach(k => (p[k] = [...root.querySelectorAll(`input[type=checkbox][data-f="${k}"]:checked`)].map(i => i.value))); const fr = root.querySelector('input[data-f="fresh"]:checked'); p.fresh = fr ? fr.value : ''; return p; };
   const current = () => parse(PL.router.parse().query);
+  const reorderFacetRows = (root, key) => {
+    const options = root.closest('.jb-fb, .jb-mobile-filter-options');
+    if (!options) return;
+    const rows = [...options.querySelectorAll(`[data-facet-row="${key}"]`)];
+    const ordered = sortFacetEntries(key, rows.map(row => [row.dataset.facetValue, Number(row.dataset.facetCount)]))
+      .map(([value]) => rows.find(row => row.dataset.facetValue === value));
+    const fragment = document.createDocumentFragment();
+    ordered.forEach(row => fragment.appendChild(row));
+    options.insertBefore(fragment, options.querySelector('.jb-facet-empty, .jb-more'));
+  };
+  const filterFacetRows = input => {
+    const options = input.closest('.jb-fb, .jb-mobile-filter-options');
+    if (!options) return;
+    const key = input.dataset.facetSearch;
+    const term = lc(input.value).trim();
+    PL.state.jbFacetSearches = PL.state.jbFacetSearches || {};
+    PL.state.jbFacetSearches[key] = input.value;
+    options.classList.toggle('facet-searching', !!term);
+    const rows = [...options.querySelectorAll(`[data-facet-row="${key}"]`)];
+    rows.forEach(row => {
+      row.hidden = !!term && !lc(`${row.dataset.facetLabel} ${row.dataset.facetValue} ${row.dataset.state || ''}`).includes(term);
+    });
+    let empty = options.querySelector('[data-facet-empty]');
+    if (!empty) {
+      empty = document.createElement('p');
+      empty.className = 'jb-facet-empty';
+      empty.dataset.facetEmpty = '';
+      empty.textContent = 'No matching options. Try another search.';
+      options.appendChild(empty);
+    }
+    empty.hidden = !term || rows.some(row => !row.hidden);
+  };
   document.addEventListener('change', e => {
     const t = e.target;
+    if (t.matches && t.matches('[data-facet-sort]')) return;
     if (t.closest && t.closest('#jb-filter-overlay') && t.dataset.mobileF) {
       const p = PL.state.jbMobileDraft || (PL.state.jbMobileDraft = current());
       const key = t.dataset.mobileF;
@@ -423,6 +516,7 @@
   });
   document.addEventListener('input', e => {
     const t = e.target;
+    if (t.matches && t.matches('[data-facet-search]')) { filterFacetRows(t); return; }
     if (t.matches && t.matches('#jb-mobile-filter-options input[data-mobile-f="exp"]')) {
       const p = PL.state.jbMobileDraft || (PL.state.jbMobileDraft = current());
       p.exp = t.value;
@@ -433,7 +527,17 @@
     }
     if (t.matches && t.matches('#jb-filters input[data-f="exp"]')) { const v = document.getElementById('jb-exv'); if (v) v.textContent = +t.value === 0 ? 'Fresher' : t.value + (+t.value === 1 ? ' year' : ' years'); }
   });
-  document.addEventListener('change', e => { const t = e.target; if (t.id === 'jb-sort') { const p = current(); p.sort = t.value; p.page = 1; nav(p, true); } });
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.matches && t.matches('[data-facet-sort]')) {
+      const key = t.dataset.facetSort;
+      PL.state.jbFacetSorts = PL.state.jbFacetSorts || {};
+      PL.state.jbFacetSorts[key] = t.value;
+      document.querySelectorAll(`[data-facet-sort="${key}"]`).forEach(select => { select.value = t.value; reorderFacetRows(select, key); });
+      return;
+    }
+    if (t.id === 'jb-sort') { const p = current(); p.sort = t.value; p.page = 1; nav(p, true); }
+  });
   PL.act('jb-more', (d, el) => { const b = el.closest('.jb-fb'); b.classList.toggle('all'); el.textContent = b.classList.contains('all') ? 'View less' : 'View more'; });
   PL.act('jb-clear', () => { const p = current(); nav({ ...parse({}), q: p.q, loc: p.loc }, true); });
   PL.act('jb-unexp', () => { const p = current(); p.exp = ''; p.page = 1; nav(p, true); });
@@ -501,6 +605,7 @@
   PL.act('jb-page', d => { const p = current(); p.page = +d.n; nav(p); });
 
   R.add('/job-results', ctx => {
+    if (!ctx.query.browse && !Object.keys(ctx.query).length) return searchHome();
     const p = parse(ctx.query), list = run(p), pages = Math.max(1, Math.ceil(list.length / PER)), page = Math.min(p.page, pages), rows = list.slice((page - 1) * PER, page * PER);
     PL.state.lastResults = url(p);
     const chips = []; const add = (k, v, t) => chips.push(`<button type="button" class="jb-ac" data-action="jb-rm" data-k="${k}" data-v="${E(v)}">${E(t)} ${I('x', 12)}</button>`);
@@ -516,13 +621,13 @@
       return `<button type="button" data-action="jb-mobile-quick" data-key="${key}">${label}${count ? `<i>${count}</i>` : ''}</button>`;
     }).join('')}</div>`;
     return `<div class="jb-3 jb-3r"><aside class="jb-filters" id="jb-filters" aria-label="Filters">${filters(p)}</aside>
-      <section class="jb-results jb-results-screen"><div class="jb-rh"><div class="jb-count" role="status">${list.length ? `${s0 + 1} - ${s0 + rows.length} of ${list.length}` : '0'} <b>${title}</b></div><div class="jb-rt"><button type="button" class="link-btn" data-action="jb-alert">Send me jobs like these</button><label class="jb-sortlab">Sort by: <select id="jb-sort"><option value="rel" ${p.sort === 'rel' ? 'selected' : ''}>Recommended</option><option value="date" ${p.sort === 'date' ? 'selected' : ''}>Date</option></select></label><button class="btn btn-secondary btn-sm jb-fbtn" data-action="jb-fopen">${I('filter', 14)} Filters${activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div></div>
+      <section class="jb-results jb-results-screen"><div class="jb-rh"><div class="jb-count" role="status">${list.length ? `${s0 + 1} - ${s0 + rows.length} of ${list.length}` : '0'} <b>${title}</b></div><div class="jb-rt"><button type="button" class="link-btn" data-action="jb-alert">Send me jobs like these</button><label class="jb-sortlab">Sort by: <select id="jb-sort"><option value="rel" ${p.sort === 'rel' ? 'selected' : ''}>Recommended</option><option value="date" ${p.sort === 'date' ? 'selected' : ''}>Date</option><option value="city" ${p.sort === 'city' ? 'selected' : ''}>City A–Z</option><option value="state" ${p.sort === 'state' ? 'selected' : ''}>State A–Z</option></select></label><button class="btn btn-secondary btn-sm jb-fbtn" data-action="jb-fopen">${I('filter', 14)} Filters${activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div></div>
       ${chips.length ? `<div class="jb-applied">${chips.join('')}<button type="button" class="link-btn" data-action="jb-clear-all">Clear all</button></div>` : ''}
       ${rows.length ? `<div class="jb-list">${rows.map(card).join('')}</div>${pg.length ? `<div class="jb-pager">${pg.join('')}</div>` : ''}` : `<div class="jb-none">${I('search', 40)}<h3>No jobs match your search</h3><p class="muted">Try removing some filters, checking the spelling, or searching with a broader keyword.</p><button class="btn btn-secondary" data-action="jb-clear-all">Clear search &amp; filters</button></div>`}
       ${mobileFilterBar}${mobileFilterSheet(p)}</section>
       <aside class="jb-right"><div class="jb-promo jb-safe">${I('shield', 44)}<h3>Never pay anyone to get a job</h3><p class="muted">Fraudsters may ask you to invest money either to earn more OR to get you a job. Never make such payments.</p><a href="#/page/help">Learn more</a></div></aside></div>`;
-  }, { layout: 'jobs', title: 'Job results' });
-  PL.act('jb-clear-all', () => nav(parse({})));
+  }, { layout: 'jobs', title: 'Jobs' });
+  PL.act('jb-clear-all', () => PL.go('/job-search'));
 
   /* ---------- detail ---------- */
   const li = a => `<ul class="jb-ul">${(a || []).map(x => `<li>${E(x)}</li>`).join('')}</ul>`;
@@ -569,7 +674,7 @@
   /* ---------- Naukri-style header + search overlay ---------- */
   PL.jobsLayout = (ctx, html, u) => {
     const p = parse(ctx.query || {}), onRes = ctx.path === '/job-results';
-    const sum = onRes ? [p.q, p.exp !== '' ? (+p.exp === 0 ? 'Fresher' : p.exp + ' yrs') : '', p.loc].filter(Boolean).join(', ') : '';
+    const sum = onRes ? [p.q, p.loc].filter(Boolean).join(', ') : '';
     const nav = (h, t, on) => `<a href="#${h}" class="${on ? 'on' : ''}">${t}</a>`;
     const role = u ? u.role : '';
     const inbox = role === 'recruiter' ? '/employer/messages' : '';
@@ -577,7 +682,7 @@
     const unreadMessages = u && inbox ? PL.q.unreadMsgs(u.id) : 0, unreadNotifications = u && notifications ? PL.q.unreadNotifs(u.id) : 0;
     document.body.className = '';
     return `<header class="jb-hd ${role === 'candidate' && ctx.path === '/dashboard' ? 'jb-dashboard-hd' : ''}"><div class="jb-hd-in">${PL.brandHtml('/job-search')}
-      <nav class="jb-nav" aria-label="Main">${nav('/job-search', 'Home', ctx.path === '/job-search')}${nav('/job-results', 'Jobs', /^\/job(-results|\/)/.test(ctx.path))}${role !== 'candidate' ? nav('/dashboard', 'Dashboard', ctx.path === '/dashboard') : ''}</nav>
+      <nav class="jb-nav" aria-label="Main">${nav('/job-search', 'Home', ctx.path === '/job-search')}${nav('/job-results', 'Jobs', /^\/job(-search|-results|\/)/.test(ctx.path))}${role !== 'candidate' ? nav('/dashboard', 'Dashboard', ctx.path === '/dashboard') : ''}</nav>
       <button type="button" class="jb-pill" data-action="jb-sopen" aria-label="Search jobs"><span class="${sum ? '' : 'ph'}">${E(sum || 'Search jobs here')}</span><i class="jb-sgo">${I('search', 16)}</i></button>
       <div class="jb-hd-r">${u ? `${inbox ? `<a class="icon-btn jb-head-link" href="#${inbox}" aria-label="Inbox${unreadMessages ? ', ' + unreadMessages + ' unread' : ''}">${I('message', 20)}${unreadMessages ? `<i>${unreadMessages}</i>` : ''}</a>` : ''}${notifications ? `<a class="icon-btn jb-head-link" href="#${notifications}" aria-label="Notifications${unreadNotifications ? ', ' + unreadNotifications + ' unread' : ''}">${I('bell', 20)}${unreadNotifications ? `<i>${unreadNotifications}</i>` : ''}</a>` : ''}${PL.profileMenu(u)}` : `<a class="btn btn-sm" href="#/login">Sign in</a>`}</div></div></header>
       ${PL.mobileBackbar(ctx)}<div class="jb-ov" id="jb-ov" hidden><div class="jb-ov-top"><div class="jb-hd-in">${PL.brandHtml('/job-search')}<button type="button" class="icon-btn jb-ov-x" data-action="jb-sclose" aria-label="Close search">${I('x', 22)}</button></div>${searchBar(p)}</div><div class="jb-ov-scrim" data-action="jb-sclose"></div></div>

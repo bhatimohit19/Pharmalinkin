@@ -41,7 +41,7 @@
 
   const demoProfile = p => ({ onboarded: true, level: 'Experienced', dob: '1996-05-14', resumeFile: p.resume ? p.resume.name : '', education: [{ id: 'e0', level: '10th', degree: 'High School (10th)', board: 'CBSE', institute: 'Demo Public School, Mumbai', year: '2012', grade: '85', current: false }, { id: 'e00', level: '12th', degree: 'Intermediate (12th) (Science)', board: 'CBSE', institute: 'Demo Junior College, Mumbai', year: '2014', grade: '80', current: false }, { id: 'e1', level: 'Graduation', degree: 'B.Pharm', board: '', institute: 'Demo College of Pharmacy, Mumbai', year: '2022', grade: '8.2', current: false }] });
   function seed() {
-    const s = { version: VERSION, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false }, categories: PL.CATEGORIES.slice(), templates: [
+    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false }, categories: PL.CATEGORIES.slice(), templates: [
       { id: 'tpl1', name: 'Application received', subject: 'We received your application', body: 'Hi {{name}}, your application for {{job}} has been received.' },
       { id: 'tpl2', name: 'Interview invitation', subject: 'Interview scheduled for {{job}}', body: 'Hi {{name}}, your interview is scheduled on {{date}} at {{time}}.' },
       { id: 'tpl3', name: 'Job approved', subject: 'Your job is live', body: 'Your job "{{job}}" has been approved and is now visible to candidates.' },
@@ -139,7 +139,10 @@
       J('j33', 'Clinical Trial Coordinator', 'Clinical Research', 'c2', 'H', 'B.Sc Life Sciences', [1, 3], [4, 6], 'Full-time', 'On-site', 'Closed', 120, -80, 280),
       J('j34', 'Territory Business Manager', 'Pharmaceutical Sales', 'c4', 'D', 'B.Pharm', [3, 6], [6, 9], 'Full-time', 'Field / Travelling', 'Closed', 150, -110, 350),
       J('j35', 'Packaging Operator Lead', 'Production', 'c5', 'A', 'Any Graduate', [2, 5], [3, 4.5], 'Full-time', 'On-site', 'Closed', 200, -160, 120),
-      J('j36', 'Biostatistician', 'Clinical Research', 'c9', 'H', 'M.Sc Life Sciences', [3, 6], [9, 14], 'Full-time', 'Hybrid', 'Closed', 250, -210, 190)
+      J('j36', 'Biostatistician', 'Clinical Research', 'c9', 'H', 'M.Sc Life Sciences', [3, 6], [9, 14], 'Full-time', 'Hybrid', 'Closed', 250, -210, 190),
+      J('j37', 'Hospital Pharmacist – Weekend Cover', 'Hospital Pharmacy', 'c6', 'Ko', 'Pharm.D', [1, 3], [3.5, 5], 'Part-time', 'On-site', 'Published', 2, 28, 54),
+      J('j38', 'Quality Assurance Associate', 'Quality Assurance', 'c8', 'N', 'B.Pharm', [1, 4], [4, 7], 'Full-time', 'On-site', 'Published', 3, 30, 67),
+      J('j39', 'Biotech Process Associate', 'R&D', 'c3', 'I', 'B.Tech Biotechnology', [1, 4], [5, 8], 'Full-time', 'Hybrid', 'Published', 1, 25, 43)
     ];
 
     /* ---- applications ---- */
@@ -274,7 +277,14 @@
     load() {
       let data = null;
       try { const raw = localStorage.getItem(KEY); if (raw) { data = JSON.parse(raw); if (!data || data.version !== VERSION || !Array.isArray(data.users) || !Array.isArray(data.jobs)) data = null; } } catch (e) { data = null; }
-      this.s = data || seed(); this.s.users.forEach(x => {
+      this.s = data || seed();
+      if (!this.s.demoJobExpansionVersion) {
+        const demoJobs = seed().jobs.filter(job => ['j37', 'j38', 'j39'].includes(job.id));
+        const existingIds = new Set(this.s.jobs.map(job => job.id));
+        this.s.jobs.push(...demoJobs.filter(job => !existingIds.has(job.id)));
+        this.s.demoJobExpansionVersion = 1;
+      }
+      this.s.users.forEach(x => {
         if (x.id === 'u1') {
           if (x.name === 'Aarav Mehta') { x.name = 'Mohit Bhati'; Object.assign(x.profile, demoProfile(x.profile)); }
           x.profile = x.profile || {};
