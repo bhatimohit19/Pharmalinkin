@@ -31,7 +31,7 @@
       if (value === '/' || /^\/(?:jobs|companies|news|pricing|page)(?:\/|$)/.test(value)) return 'public';
       return '';
     };
-    const roots = new Set(['/', '/app/profile', '/app/feed', '/app/dashboard', '/job-search', '/dashboard', '/login', '/register', '/onboarding', '/jobs', '/companies', '/news', '/pricing']);
+    const roots = new Set(['/', '/app/profile', '/app/feed', '/app/dashboard', '/job-search', '/job-results', '/dashboard', '/login', '/register', '/onboarding', '/jobs', '/companies', '/news', '/pricing']);
     if (!previous || roots.has(path) || /^\/job\//.test(path) || !flow(path) || flow(path) !== flow(previous)) return '';
     return `<div class="mobile-backbar"><button type="button" class="mobile-back-button" data-action="history-back">${I('left', 18)}<span>Back</span></button></div>`;
   };
@@ -40,8 +40,8 @@
   function publicLayout(ctx, html, u) {
     const cand = PL.onboardingOnly() && u && u.role === 'candidate';
     const links = cand ? [['Jobs', '/job-results']] : PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
-    const act = active(/^\/job/.test(ctx.path) && cand ? '/job-search' : ctx.path, links);
-    return `${BANNER}<header class="site-header"><div class="container inner">${brand(cand ? '/job-search' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
+    const act = active(/^\/job/.test(ctx.path) && cand ? '/job-results' : ctx.path, links);
+    return `${BANNER}<header class="site-header"><div class="container inner">${brand(cand ? '/job-results' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
       <div class="row auth-btns" style="margin-left:auto">${u ? `${cand ? '' : `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>`}${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
       ${mobileBackbar(ctx)}<main id="main" tabindex="-1">${html}</main>${footer()}`;
   }

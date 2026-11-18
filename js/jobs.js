@@ -35,14 +35,10 @@
     if (skip !== 'sal' && p.sal.length && !SAL.some(s => p.sal.includes(s[0]) && j.salMax >= s[2] && j.salMin <= s[3])) return false;
     return true;
   };
-  const score = (j, p) => { const qq = lc(p.q).trim(); let s = j.featured ? 2 : 0; if (qq) { const t = lc(j.title); qq.split(/[\s,]+/).filter(Boolean).forEach(w => { if (t.includes(w)) s += 5; if ((j.skills || []).some(x => lc(x).includes(w))) s += 3; if (lc(j.department).includes(w)) s += 2; if (lc(co(j).name).includes(w)) s += 2; }); } return s - days(j) / 100; };
+  const score = (j, p) => { const qq = lc(p.q).trim(); let s = qq ? 0 : j.featured ? 2 : 0; if (qq) { const t = lc(j.title), company = lc(co(j).name), department = lc(j.department); qq.split(/[\s,]+/).filter(Boolean).forEach(w => { if (t.includes(w)) s += 5; if (department.includes(w)) s += 3; if (company.includes(w)) s += 3; if ((j.skills || []).some(x => lc(x).includes(w))) s += 2; }); } return s - days(j) / 100; };
   const run = p => PL.q.publicJobs().filter(j => match(j, p)).sort(p.sort === 'date'
     ? (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    : p.sort === 'city'
-      ? (a, b) => a.city.localeCompare(b.city) || a.state.localeCompare(b.state) || a.title.localeCompare(b.title)
-      : p.sort === 'state'
-        ? (a, b) => a.state.localeCompare(b.state) || a.city.localeCompare(b.city) || a.title.localeCompare(b.title)
-        : (a, b) => score(b, p) - score(a, p) || a.title.localeCompare(b.title));
+    : (a, b) => score(b, p) - score(a, p) || a.title.localeCompare(b.title));
   const facet = (p, key, get) => { const m = {}; PL.q.publicJobs().filter(j => match(j, p, key)).forEach(j => { const v = get(j); if (v) m[v] = (m[v] || 0) + 1; }); return m; };
   const locationState = city => [...new Set(PL.q.publicJobs().filter(j => j.city === city).map(j => j.state).filter(Boolean))].sort().join(', ');
   const facetOptionLabel = (key, value) => key === 'company' ? ((PL.q.company(value) || {}).name || value) : value;
@@ -62,7 +58,7 @@
     const sorts = key === 'city' ? [['count', 'Most jobs'], ['city', 'City A–Z'], ['state', 'State A–Z']] : [['count', 'Most jobs'], ['alpha', 'A–Z']];
     const search = (PL.state.jbFacetSearches || {})[key] || '';
     const name = key === 'city' ? 'locations' : key === 'company' ? 'companies' : key === 'qual' ? 'education' : key === 'dept' ? 'departments' : key;
-    return `<div class="jb-facet-tools"><label class="jb-facet-search"><span>${I('search', 16)}</span><input type="search" data-facet-search="${E(key)}" value="${E(search)}" placeholder="Search ${E(name)}" aria-label="Search ${E(name)}" autocomplete="off"></label><label class="jb-facet-sort"><span>Sort by</span><select data-facet-sort="${E(key)}" aria-label="Sort ${E(name)}">${sorts.map(([value, label]) => `<option value="${value}" ${facetSort(key) === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+    return `<div class="jb-facet-tools${key === 'city' ? ' jb-facet-tools-location' : ''}"><label class="jb-facet-search"><span>${I('search', 16)}</span><input type="search" data-facet-search="${E(key)}" value="${E(search)}" placeholder="Search ${E(name)}" aria-label="Search ${E(name)}" autocomplete="off"></label><label class="jb-facet-sort"><span>Sort by</span><select data-facet-sort="${E(key)}" aria-label="Sort ${E(name)}">${sorts.map(([value, label]) => `<option value="${value}" ${facetSort(key) === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
   };
   const facetQuery = key => lc(((PL.state.jbFacetSearches || {})[key] || '').trim());
   const facetMatches = (key, value, label) => {
@@ -73,7 +69,7 @@
   const facetRowData = (key, value, label, count) => `data-facet-row="${E(key)}" data-facet-value="${E(value)}" data-facet-label="${E(label)}" data-facet-count="${count}"${key === 'city' ? ` data-city="${E(value)}" data-state="${E(locationState(value))}"` : ''}`;
 
   /* ---------- search bar ---------- */
-  const searchBar = (p, cls = '') => `<form data-form="jb-search" class="jb-bar ${cls}" role="search" autocomplete="off"><div class="jb-f jb-f-q"><span class="jb-ic">${I('search', 18)}</span><input class="jb-q" name="q" value="${E(p.q)}" placeholder="Enter job title, skills or company" aria-label="Job title, skills or company"><div class="jb-sugg" hidden></div></div><div class="jb-f jb-f-l"><span class="jb-ic">${I('pin', 18)}</span><input name="loc" value="${E(p.loc)}" placeholder="Enter city or state" aria-label="City or state"></div><button class="btn jb-go" type="submit">Search jobs</button></form>`;
+  const searchBar = (p, cls = '') => `<form data-form="jb-search" class="jb-bar ${cls}" role="search" autocomplete="off"><div class="jb-f jb-f-q"><span class="jb-ic">${I('search', 18)}</span><input class="jb-q" name="q" value="${E(p.q)}" placeholder="Skills, designations, companies" aria-label="Job title, skills or company"><div class="jb-sugg" hidden></div></div><div class="jb-f jb-f-l"><span class="jb-ic">${I('pin', 18)}</span><input name="loc" value="${E(p.loc)}" placeholder="Location" aria-label="City or state"></div><button class="btn jb-go" type="submit">Search jobs</button></form>`;
   const rememberSearch = (q, loc) => {
     if (!q && !loc) return;
     const history = db().recentJobSearches || [];
@@ -286,8 +282,8 @@
         <div class="jb-home-resume-actions"><button type="button" class="btn btn-secondary btn-sm" data-action="resume-upload">${I('upload', 15)} ${resume ? 'Update uploaded resume' : 'Upload resume'}</button>${generatedResume ? `<button type="button" class="btn btn-sm" data-action="onb-download">${I('download', 15)} Download generated resume</button>` : `<a class="btn btn-sm" href="#/app/profile/completion">${I('edit', 15)} Complete profile to generate</a>`}<a class="jb-home-text-link" href="#/app/resume">Manage resume</a></div>
         ${generatedResume ? `<details class="jb-home-resume-preview"><summary>Preview generated resume</summary>${generatedResume}</details>` : ''}
       </section>
-      <section class="jb-home-list-panel" id="applied-jobs"><div class="jb-home-section-heading"><span class="jb-home-section-icon">${I('briefcase', 21)}</span><span><h2>Applied Jobs</h2><small>${applications.length} application${applications.length === 1 ? '' : 's'} · latest status updates</small></span><a href="#/my-applications">View all</a></div>${latestApplications ? `<div class="jb-dash-list">${latestApplications}</div>` : `<p class="jb-home-empty">Your applications will appear here after you apply for a job.</p><a class="btn btn-secondary btn-sm" href="#/job-results">Browse jobs</a>`}</section>
-      <section class="jb-home-list-panel" id="liked-jobs"><div class="jb-home-section-heading"><span class="jb-home-section-icon">${I('like', 21)}</span><span><h2>Liked Jobs</h2><small>${likedJobs.length} saved for later consideration</small></span><a href="#/job-results">Find more</a></div>${likedRows ? `<div class="jb-dash-list">${likedRows}</div>` : `<p class="jb-home-empty">Jobs you like will appear here so you can easily revisit them.</p><a class="btn btn-secondary btn-sm" href="#/job-results">Explore jobs</a>`}</section>
+      <section class="jb-home-list-panel" id="applied-jobs"><div class="jb-home-section-heading"><span class="jb-home-section-icon">${I('briefcase', 21)}</span><span><h2>Applied Jobs</h2><small>${applications.length} application${applications.length === 1 ? '' : 's'} · latest status updates</small></span><a href="#/my-applications">View all</a></div>${latestApplications ? `<div class="jb-dash-list">${latestApplications}</div>` : `<p class="jb-home-empty">Your applications will appear here after you apply for a job.</p><a class="btn btn-secondary btn-sm" href="#/job-results?browse=1">Browse jobs</a>`}</section>
+      <section class="jb-home-list-panel" id="liked-jobs"><div class="jb-home-section-heading"><span class="jb-home-section-icon">${I('like', 21)}</span><span><h2>Liked Jobs</h2><small>${likedJobs.length} saved for later consideration</small></span><a href="#/job-results">Find more</a></div>${likedRows ? `<div class="jb-dash-list">${likedRows}</div>` : `<p class="jb-home-empty">Jobs you like will appear here so you can easily revisit them.</p><a class="btn btn-secondary btn-sm" href="#/job-results?browse=1">Explore jobs</a>`}</section>
       ${upcomingInterviews.length ? `<section class="jb-home-list-panel"><div class="jb-home-section-heading"><span class="jb-home-section-icon">${I('calendar', 21)}</span><span><h2>Upcoming Interviews</h2><small>Your next scheduled interview${upcomingInterviews.length === 1 ? '' : 's'}</small></span></div><div class="jb-dash-list">${upcomingInterviews.join('')}</div></section>` : ''}
     </div>`;
   }, { layout: 'jobs', title: 'Dashboard' });
@@ -303,12 +299,12 @@
       <div class="jb-meta"><span>${I('pin', 15)}${E(j.city)}</span><span>${I('briefcase', 15)}${expTxt(j)}</span><span>${I('rupee', 15)}${salTxt(j)}</span></div>
       <div class="jb-app-status">${ui().badge(a.status)}</div>
       <div class="jb-foot"><span class="xs muted">Applied on ${F().date(a.appliedAt)}</span><div class="row nowrap jb-acts">${['Hired', 'Rejected', 'Withdrawn'].includes(a.status) ? '' : `<button type="button" class="jb-save" data-action="jb-withdraw" data-id="${a.id}">${I('x', 18)} Withdraw</button>`}<a class="jb-save jb-view" href="#/job/${j.id}">${I('eye', 18)} View job</a></div></div></article>`; };
-    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>My applications <span class="muted">(${list.length})</span></h1><p class="muted small">Application statuses reflect the latest updates available from the employer.</p>${list.length ? `<div class="jb-list">${list.map(row).join('')}</div>` : `<div class="jb-none">${I('file', 40)}<h3>No applications yet</h3><p class="muted">Jobs you apply to will appear here.</p><a class="btn" href="#/job-results">Browse jobs</a></div>`}</div>`;
+    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>My applications <span class="muted">(${list.length})</span></h1><p class="muted small">Application statuses reflect the latest updates available from the employer.</p>${list.length ? `<div class="jb-list">${list.map(row).join('')}</div>` : `<div class="jb-none">${I('file', 40)}<h3>No applications yet</h3><p class="muted">Jobs you apply to will appear here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
   }, { layout: 'jobs', title: 'My applications' });
   R.add('/saved-jobs', () => {
     const u = gate('/saved-jobs'); if (!u) return '';
     const list = PL.q.saved(u.id).map(id => PL.q.job(id)).filter(Boolean);
-    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>Saved jobs <span class="muted">(${list.length})</span></h1>${list.length ? `<div class="jb-list">${list.map(card).join('')}</div>` : `<div class="jb-none">${I('bookmark', 40)}<h3>No saved jobs yet</h3><p class="muted">Tap Save on any job to keep it here.</p><a class="btn" href="#/job-results">Browse jobs</a></div>`}</div>`;
+    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>Saved jobs <span class="muted">(${list.length})</span></h1>${list.length ? `<div class="jb-list">${list.map(card).join('')}</div>` : `<div class="jb-none">${I('bookmark', 40)}<h3>No saved jobs yet</h3><p class="muted">Tap Save on any job to keep it here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
   }, { layout: 'jobs', title: 'Saved jobs' });
   PL.act('jb-soon', () => ui().toast('Coming soon in the next phase', 'info'));
   PL.act('jb-alert', () => {
@@ -334,32 +330,20 @@
     const post = links.post ? `<a class="jb-mobile-item jb-post-item ${isPost ? 'active' : ''}" href="#${links.post}" aria-label="${role === 'recruiter' ? 'Post a job' : role === 'advertiser' ? 'Create campaign' : role === 'candidate' ? 'Create post' : 'Post'}"><span class="jb-post-plus">${I('plus', 23)}</span><span>${role === 'recruiter' ? 'Post Job' : role === 'advertiser' ? 'Campaign' : 'Post'}</span></a>` : `<button type="button" class="jb-mobile-item" data-action="jb-post-denied"><span class="jb-post-plus">${I('plus', 23)}</span><span>Post</span></button>`;
     return `<nav class="jb-mobile-nav" aria-label="Mobile primary navigation">${item('Home', links.home, 'home', isHome)}${item('Jobs', links.jobs, 'briefcase', isJobs)}${post}<button type="button" class="jb-mobile-item" data-action="jb-social"><span class="jb-mobile-icon">${I('globe', 20)}</span><span>Social</span></button>${item(role === 'candidate' ? 'Dashboard' : 'Dashboard', links.dashboard, 'dash', isDashboard)}</nav>`;
   };
-  const searchHome = () => {
-    const jobs = PL.q.publicJobs().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const searchHome = (p = parse({})) => {
     const recent = db().recentJobSearches || [];
-    const featuredJobs = jobs.filter(j => j.featured);
-    const openJobs = jobs.filter(j => !j.featured);
-    const featuredCompanyIds = [...new Set(featuredJobs.map(j => j.companyId))];
+    const jobs = PL.q.publicJobs();
     const jobCounts = jobs.reduce((counts, job) => { counts[job.companyId] = (counts[job.companyId] || 0) + 1; return counts; }, {});
-    const featuredCompanies = featuredCompanyIds.map(id => PL.q.company(id)).filter(Boolean).slice(0, 6);
     const topCompanies = Object.keys(jobCounts).sort((a, b) => jobCounts[b] - jobCounts[a] || ((PL.q.company(a) || {}).name || '').localeCompare((PL.q.company(b) || {}).name || '')).map(id => PL.q.company(id)).filter(Boolean).slice(0, 6);
-    const companyCard = company => `<a class="jb-company-tile" href="#/companies/${company.id}">${ui().logo(company, 56)}<b>${E(company.name)}</b><span>${E(company.industry)}</span><small>${jobCounts[company.id] || 0} open ${(jobCounts[company.id] || 0) === 1 ? 'role' : 'roles'}</small></a>`;
-    const jobSection = (title, description, rows, more = true) => rows.length ? `<section class="jb-home-section"><div class="jb-home-section-head"><div><h2>${title}</h2><p>${description}</p></div>${more ? '<a href="#/job-results?browse=1">View all</a>' : ''}</div><div class="jb-scroll jb-home-job-list">${rows.map(mini).join('')}</div></section>` : '';
-    const featuredPreview = featuredJobs.slice(0, 4);
-    const openPreview = openJobs.slice(0, 4);
-    const otherPreview = openJobs.slice(4, 8);
-    const user = me();
+    const companyCard = company => { const review = rating({ companyId: company.id }); return `<a class="jb-company-tile" href="#/companies/${company.id}">${ui().logo(company, 72)}<b>${E(company.name)}</b><span class="jb-company-rating">${star} ${review.r} <i></i> ${review.n} reviews</span><small>${jobCounts[company.id] || 0} open ${(jobCounts[company.id] || 0) === 1 ? 'role' : 'roles'}</small></a>`; };
     return `<div class="jb-search-home">
-      <section class="jb-search-hero"><p>${user ? `Hey ${E(user.name)},` : 'Welcome to PharmaLinkIn'}</p><h1>Find your next opportunity</h1>${searchBar(parse({}), 'jb-home-search')}</section>
-      ${recent.length ? `<section class="jb-home-section jb-recent-section"><div class="jb-home-section-head"><div><h2>Your recent searches</h2><p>Pick up where you left off.</p></div></div><div class="jb-recent-list">${recent.map(search => { const label = [search.q, search.loc].filter(Boolean).join(' · '); return `<button type="button" class="jb-recent-item" data-action="jb-recent-search" data-search="${E(JSON.stringify(search))}">${I('clock', 16)}<span>${E(label)}</span></button>`; }).join('')}</div></section>` : ''}
-      ${featuredCompanies.length ? `<section class="jb-home-section"><div class="jb-home-section-head"><div><h2>Featured companies</h2><p>Companies with featured roles.</p></div><a href="#/companies">View all</a></div><div class="jb-company-list">${featuredCompanies.map(companyCard).join('')}</div></section>` : ''}
-      <section class="jb-home-section"><div class="jb-home-section-head"><div><h2>Top companies</h2><p>Explore employers with the most open roles.</p></div><a href="#/companies">View all</a></div><div class="jb-company-list">${topCompanies.map(companyCard).join('')}</div></section>
-      ${jobSection('Explore open jobs', 'Browse current opportunities and apply directly at no cost.', openPreview)}
-      ${jobSection('Featured jobs', 'Highlighted opportunities from employers.', featuredPreview)}
-      ${jobSection('More jobs to explore', 'Discover more open roles across the pharma industry.', otherPreview)}
+      <a class="jb-search-back" href="#${PL.state.jbSearchFrom || '/job-results?browse=1'}" aria-label="Back">${I('left', 28)}</a>
+      <section class="jb-search-hero"><h1>Search jobs and internships</h1>${searchBar(p, 'jb-home-search')}</section>
+      ${recent.length ? `<section class="jb-home-section jb-recent-section"><div class="jb-home-section-head"><div><h2>Your most recent searches</h2></div></div><div class="jb-recent-list">${recent.map(search => { const label = [search.q, search.loc].filter(Boolean).join(' · '); return `<button type="button" class="jb-recent-item" data-action="jb-recent-search" data-search="${E(JSON.stringify(search))}">${I('search', 20)}<span>${E(label)}</span></button>`; }).join('')}</div></section>` : ''}
+      <section class="jb-home-section jb-top-companies"><div class="jb-home-section-head"><div><h2>Top companies</h2><p>Hiring for Enterprise &amp; B2B Sales</p></div><a href="#/companies">View all</a></div><div class="jb-company-list">${topCompanies.map(companyCard).join('')}</div></section>
     </div>`;
   };
-  R.add('/job-search', searchHome, { layout: 'jobs', title: 'Find jobs' });
+  R.add('/job-search', ctx => searchHome(parse(ctx.query || {})), { layout: 'jobs', title: 'Find jobs' });
 
 
 
@@ -594,18 +578,10 @@
     PL.state.jbMobileDraft = clean;
     renderMobileFacet(PL.state.jbMobileFacet); updateMobileFilterCount();
   });
-  PL.act('jb-mobile-quick', d => {
-    const overlay = document.getElementById('jb-filter-overlay');
-    if (!overlay) return;
-    PL.state.jbMobileDraft = current(); PL.state.jbMobileDraft.page = 1;
-    renderMobileFacet(d.key); overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('jb-lock'); updateMobileFilterCount();
-  });
   PL.act('jb-rm', d => { const p = current(); if (d.k === 'q' || d.k === 'loc' || d.k === 'exp' || d.k === 'fresh') p[d.k] = ''; else p[d.k] = p[d.k].filter(x => x !== d.v); p.page = 1; nav(p, true); });
   PL.act('jb-page', d => { const p = current(); p.page = +d.n; nav(p); });
 
   R.add('/job-results', ctx => {
-    if (!ctx.query.browse && !Object.keys(ctx.query).length) return searchHome();
     const p = parse(ctx.query), list = run(p), pages = Math.max(1, Math.ceil(list.length / PER)), page = Math.min(p.page, pages), rows = list.slice((page - 1) * PER, page * PER);
     PL.state.lastResults = url(p);
     const chips = []; const add = (k, v, t) => chips.push(`<button type="button" class="jb-ac" data-action="jb-rm" data-k="${k}" data-v="${E(v)}">${E(t)} ${I('x', 12)}</button>`);
@@ -616,24 +592,20 @@
     const title = p.q ? `${E(p.q)} jobs${p.loc ? ' in ' + E(p.loc) : ''}` : p.loc ? `Jobs in ${E(p.loc)}` : 'All pharma jobs';
     const s0 = (page - 1) * PER;
     const activeFilterCount = (p.exp !== '' ? 1 : 0) + (p.fresh ? 1 : 0) + CSV.reduce((n, key) => n + p[key].length, 0);
-    const mobileFilterBar = `<div class="jb-mobile-filterbar"><button type="button" class="jb-mobile-filter-icon" data-action="jb-fopen" aria-label="Open all job filters">${I('filter', 19)}${activeFilterCount ? `<i>${activeFilterCount}</i>` : ''}</button>${MOBILE_FACETS.slice(0, 5).map(([key, label]) => {
-      const count = key === 'exp' ? (p.exp !== '' ? 1 : 0) : (p[key] || []).length;
-      return `<button type="button" data-action="jb-mobile-quick" data-key="${key}">${label}${count ? `<i>${count}</i>` : ''}</button>`;
-    }).join('')}</div>`;
     return `<div class="jb-3 jb-3r"><aside class="jb-filters" id="jb-filters" aria-label="Filters">${filters(p)}</aside>
-      <section class="jb-results jb-results-screen"><div class="jb-rh"><div class="jb-count" role="status">${list.length ? `${s0 + 1} - ${s0 + rows.length} of ${list.length}` : '0'} <b>${title}</b></div><div class="jb-rt"><button type="button" class="link-btn" data-action="jb-alert">Send me jobs like these</button><label class="jb-sortlab">Sort by: <select id="jb-sort"><option value="rel" ${p.sort === 'rel' ? 'selected' : ''}>Recommended</option><option value="date" ${p.sort === 'date' ? 'selected' : ''}>Date</option><option value="city" ${p.sort === 'city' ? 'selected' : ''}>City A–Z</option><option value="state" ${p.sort === 'state' ? 'selected' : ''}>State A–Z</option></select></label><button class="btn btn-secondary btn-sm jb-fbtn" data-action="jb-fopen">${I('filter', 14)} Filters${activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div></div>
+      <section class="jb-results jb-results-screen"><div class="jb-rh"><div class="jb-count" role="status">${list.length ? `${s0 + 1} - ${s0 + rows.length} of ${list.length}` : '0'} <b>${title}</b></div><div class="jb-rt"><button type="button" class="link-btn" data-action="jb-alert">Send me jobs like these</button><label class="jb-sortlab">Sort by: <select id="jb-sort"><option value="date" ${p.sort === 'date' ? 'selected' : ''}>Date</option><option value="rel" ${p.sort !== 'date' ? 'selected' : ''}>Relevance</option></select></label><button class="btn btn-secondary btn-sm jb-fbtn" data-action="jb-fopen">${I('filter', 14)} Filters${activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div></div>
       ${chips.length ? `<div class="jb-applied">${chips.join('')}<button type="button" class="link-btn" data-action="jb-clear-all">Clear all</button></div>` : ''}
       ${rows.length ? `<div class="jb-list">${rows.map(card).join('')}</div>${pg.length ? `<div class="jb-pager">${pg.join('')}</div>` : ''}` : `<div class="jb-none">${I('search', 40)}<h3>No jobs match your search</h3><p class="muted">Try removing some filters, checking the spelling, or searching with a broader keyword.</p><button class="btn btn-secondary" data-action="jb-clear-all">Clear search &amp; filters</button></div>`}
-      ${mobileFilterBar}${mobileFilterSheet(p)}</section>
+      ${mobileFilterSheet(p)}</section>
       <aside class="jb-right"><div class="jb-promo jb-safe">${I('shield', 44)}<h3>Never pay anyone to get a job</h3><p class="muted">Fraudsters may ask you to invest money either to earn more OR to get you a job. Never make such payments.</p><a href="#/page/help">Learn more</a></div></aside></div>`;
   }, { layout: 'jobs', title: 'Jobs' });
-  PL.act('jb-clear-all', () => PL.go('/job-search'));
+  PL.act('jb-clear-all', () => PL.go('/job-results?browse=1'));
 
   /* ---------- detail ---------- */
   const li = a => `<ul class="jb-ul">${(a || []).map(x => `<li>${E(x)}</li>`).join('')}</ul>`;
   R.add('/job/:id', ctx => {
-    const j = PL.q.job(ctx.params.id), back = PL.state.jbFrom || PL.state.lastResults || '/job-search', backTxt = /^\/dashboard/.test(back) ? 'Back to dashboard' : /^\/my-applications/.test(back) ? 'Back to my applications' : /^\/saved-jobs/.test(back) ? 'Back to saved jobs' : /^\/job-search/.test(back) ? 'Back to home' : 'Back to results';
-    if (!j || j.status !== 'Published') return `<div class="container section">${ui().empty('briefcase', 'Job not available', 'This job may have been closed or removed.', `<a class="btn" href="#/job-search">Browse jobs</a>`)}</div>`;
+    const j = PL.q.job(ctx.params.id), back = PL.state.jbFrom || PL.state.lastResults || '/job-results', backTxt = /^\/dashboard/.test(back) ? 'Back to dashboard' : /^\/my-applications/.test(back) ? 'Back to my applications' : /^\/saved-jobs/.test(back) ? 'Back to saved jobs' : /^\/job-search/.test(back) ? 'Back to search' : 'Back to results';
+    if (!j || j.status !== 'Published') return `<div class="container section">${ui().empty('briefcase', 'Job not available', 'This job may have been closed or removed.', `<a class="btn" href="#/job-results?browse=1">Browse jobs</a>`)}</div>`;
     const u = me();
     if (u && u.role === 'candidate') PL.q.syncLegacyApplications(u.id);
     const pend = u && u.role === 'candidate' ? takePend(j.id) : null;
@@ -680,12 +652,12 @@
     const inbox = role === 'recruiter' ? '/employer/messages' : '';
     const notifications = role === 'candidate' ? '/app/notifications' : role === 'recruiter' ? '/employer/notifications' : '';
     const unreadMessages = u && inbox ? PL.q.unreadMsgs(u.id) : 0, unreadNotifications = u && notifications ? PL.q.unreadNotifs(u.id) : 0;
-    document.body.className = '';
-    return `<header class="jb-hd ${role === 'candidate' && ctx.path === '/dashboard' ? 'jb-dashboard-hd' : ''}"><div class="jb-hd-in">${PL.brandHtml('/job-search')}
-      <nav class="jb-nav" aria-label="Main">${nav('/job-search', 'Home', ctx.path === '/job-search')}${nav('/job-results', 'Jobs', /^\/job(-search|-results|\/)/.test(ctx.path))}${role !== 'candidate' ? nav('/dashboard', 'Dashboard', ctx.path === '/dashboard') : ''}</nav>
+    document.body.className = ctx.path === '/job-search' ? 'jb-search-page' : '';
+    return `<header class="jb-hd ${role === 'candidate' && ctx.path === '/dashboard' ? 'jb-dashboard-hd' : ''}"><div class="jb-hd-in">${PL.brandHtml(role === 'candidate' ? '/dashboard' : '/job-results?browse=1')}
+      <nav class="jb-nav" aria-label="Main">${role === 'candidate' ? nav('/dashboard', 'Dashboard', ctx.path === '/dashboard') : ''}${nav('/job-results?browse=1', 'Jobs', /^\/job(-search|-results|\/)/.test(ctx.path))}${role !== 'candidate' ? nav('/dashboard', 'Dashboard', ctx.path === '/dashboard') : ''}</nav>
       <button type="button" class="jb-pill" data-action="jb-sopen" aria-label="Search jobs"><span class="${sum ? '' : 'ph'}">${E(sum || 'Search jobs here')}</span><i class="jb-sgo">${I('search', 16)}</i></button>
       <div class="jb-hd-r">${u ? `${inbox ? `<a class="icon-btn jb-head-link" href="#${inbox}" aria-label="Inbox${unreadMessages ? ', ' + unreadMessages + ' unread' : ''}">${I('message', 20)}${unreadMessages ? `<i>${unreadMessages}</i>` : ''}</a>` : ''}${notifications ? `<a class="icon-btn jb-head-link" href="#${notifications}" aria-label="Notifications${unreadNotifications ? ', ' + unreadNotifications + ' unread' : ''}">${I('bell', 20)}${unreadNotifications ? `<i>${unreadNotifications}</i>` : ''}</a>` : ''}${PL.profileMenu(u)}` : `<a class="btn btn-sm" href="#/login">Sign in</a>`}</div></div></header>
-      ${PL.mobileBackbar(ctx)}<div class="jb-ov" id="jb-ov" hidden><div class="jb-ov-top"><div class="jb-hd-in">${PL.brandHtml('/job-search')}<button type="button" class="icon-btn jb-ov-x" data-action="jb-sclose" aria-label="Close search">${I('x', 22)}</button></div>${searchBar(p)}</div><div class="jb-ov-scrim" data-action="jb-sclose"></div></div>
+      ${PL.mobileBackbar(ctx)}
       <main id="main" tabindex="-1" class="jb-main-mobile ${ctx.path === '/job-results' ? 'has-job-filterbar' : ''}">${html}</main><footer class="jb-foot2"><span>&copy; ${new Date().getFullYear()} PharmaLinkIn prototype &middot; Demo content only</span><button class="link-btn" data-action="reset-demo">Reset demo data</button></footer>${PL.mobileNav(role, ctx.path)}`;
   };
   PL.act('jb-social', () => {
@@ -696,7 +668,15 @@
     ui().modal({ title: 'Follow PharmaLinkIn', body });
   });
   PL.act('jb-post-denied', () => ui().toast('Posting is not available for this account.', 'info'));
-  PL.act('jb-sopen', () => { const o = document.getElementById('jb-ov'); if (!o) return; o.hidden = false; document.body.classList.add('jb-lock'); const q = o.querySelector('.jb-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } });
-  PL.act('jb-sclose', () => { const o = document.getElementById('jb-ov'); if (o) o.hidden = true; document.body.classList.remove('jb-lock'); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { const o = document.getElementById('jb-ov'); if (o && !o.hidden) { o.hidden = true; document.body.classList.remove('jb-lock'); } } });
+  PL.act('jb-sopen', () => {
+    const current = location.hash.slice(1) || '/job-results?browse=1';
+    const [, query = ''] = current.split('?');
+    const p = parse(Object.fromEntries(new URLSearchParams(query)));
+    PL.state.jbSearchFrom = current;
+    const params = new URLSearchParams();
+    if (p.q) params.set('q', p.q);
+    if (p.loc) params.set('loc', p.loc);
+    const search = params.toString();
+    PL.go('/job-search' + (search ? '?' + search : ''));
+  });
 })();

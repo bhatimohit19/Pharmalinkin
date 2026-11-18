@@ -44,7 +44,9 @@
   }
   function logo(c, size = 44) {
     const name = typeof c === 'string' ? c : (c && c.name) || '?';
-    if (c && typeof c === 'object' && c.logoImg) return `<img class="logo-box" src="${c.logoImg}" alt="${esc(name)} logo" width="${size}" height="${size}" style="width:${size}px;height:${size}px">`;
+    const demoLogo = c && typeof c === 'object' && /^c(?:[1-9]|10)$/.test(c.id || '') ? `assets/company-logos/${c.id}.svg` : '';
+    const logoImg = c && typeof c === 'object' && (c.logoImg || demoLogo);
+    if (logoImg) return `<img class="logo-box" src="${esc(logoImg)}" alt="${esc(name)} logo" width="${size}" height="${size}" style="width:${size}px;height:${size}px">`;
     return `<span class="logo-box" style="width:${size}px;height:${size}px;background:${PAL[hash(name) % PAL.length]};font-size:${Math.round(size * .36)}px" aria-hidden="true">${esc(name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span>`;
   }
   function art(seed, label = '', w = 800, h = 420) {

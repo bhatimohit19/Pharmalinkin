@@ -378,7 +378,7 @@
     p.preferences = Object.assign({ roles: [], locations: [d.location], jobType: 'Full-time', salary: '' }, p.preferences || {});
     p.preferences.roles = d.interests;
     p.resumeTemplate = d.template; p.resumeTone = d.tone; p.privacy = Object.assign({ visibility: 'Public', showEmail: false, showPhone: false }, p.privacy || {});
-    p.onboarded = true; delete p.draft; PL.store.save(); ui().toast('Profile saved! Here are jobs for you'); PL.go('/job-search');
+    p.onboarded = true; delete p.draft; PL.store.save(); ui().toast('Profile saved! Here are jobs for you'); PL.go('/job-results?browse=1');
   });
 
   /* ---------- finish page ---------- */
@@ -399,7 +399,7 @@
     return PL.onb.shell(LAB.c.length, `<div style="text-align:center"><span class="badge b-green">${I('check', 14)} Profile created</span><h1 style="font-size:1.7rem;margin-top:10px">Dashboard</h1><p class="muted">Welcome, ${E(u.name.split(' ')[0])}! Your resume is ready &ndash; download it anytime from here.</p></div>
       <div class="mt">${stats}</div>
       <div class="done-grid mt"><div>${left}</div><div>${right}</div></div>
-      <div class="row mt" style="justify-content:center"><a class="btn" href="#/job-search">${I('search', 14)} Find jobs</a></div>
+      <div class="row mt" style="justify-content:center"><a class="btn" href="#/job-results?browse=1">${I('search', 14)} Find jobs</a></div>
       <div class="row mt" style="justify-content:center"><button class="btn btn-secondary" data-action="onb-export">${I('download', 14)} Export to Excel</button><a class="btn btn-secondary" href="#/onboarding">${I('edit', 14)} Edit my answers</a><button class="btn btn-ghost" data-action="logout">Sign out</button></div>`, false, 'c', true);
   }, { layout: 'auth', title: 'Onboarding complete' });
 
