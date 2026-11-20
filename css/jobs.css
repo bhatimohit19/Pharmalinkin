@@ -108,6 +108,11 @@ body{background:#F4F6FA}
 /* Job card (results) */
 .jb-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:0 2px 8px rgba(16,24,40,.04)}
 .jb-card:hover{box-shadow:0 8px 24px rgba(16,24,40,.1)}
+.jb-card-heading{min-width:0}
+.jb-card-heading h3{margin:0;font-size:1.15rem;overflow-wrap:anywhere}
+.jb-card-heading h3 a{color:var(--text)}
+.jb-card-heading h3 a:hover{color:var(--primary)}
+.jb-mobile-fields{display:none}
 .jb-top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;min-width:0}
 .jb-top .grow{min-width:0}
 .jb-card h3{margin:0 0 4px;font-size:1.15rem;overflow-wrap:anywhere}
