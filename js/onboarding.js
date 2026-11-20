@@ -15,14 +15,24 @@
   const TONES = [['Professional', 'file'], ['Modern', 'zap'], ['Concise', 'list']];
 
   PL.onb = {
+    stepper(labels, cur, interactive = false, complete = false) {
+      const items = labels.map((label, i) => {
+        const done = complete || i < cur, state = done ? 'done' : i === cur ? 'cur' : '';
+        const mark = done ? '✓' : '';
+        const content = interactive && i < cur
+          ? `<button type="button" data-action="job-goto" data-i="${i}" aria-label="Go to completed step ${i + 1}: ${E(label)}">${E(label)}</button>`
+          : `<span class="lbl">${E(label)}</span>`;
+        return `<li class="${state}" ${i === cur && !complete ? 'aria-current="step"' : ''}><span class="dot">${mark}</span>${content}</li>`;
+      }).join('');
+      const step = complete ? 'All done' : `Step ${cur + 1} of ${labels.length}`;
+      return `<div class="onb2-top"><span class="onb2-step">${step}</span></div><ol class="onb2-steps" aria-label="Progress">${items}</ol>`;
+    },
     shell(cur, inner, _nav, kind = 'c', wide) {
       if (kind === 'c' && cur < 2) {
-        const S = ['Register', 'Create Resume', 'Finish'], si = S.map((l, i) => `<li class="${i ? '' : 'cur'}"><span class="dot"></span><span class="lbl">${l}</span></li>`).join('');
-        return `<div class="onb2" data-kind="${kind}"><div class="onb2-card"><div class="onb2-top"><span class="onb2-step">Step 1 of 3</span></div><ol class="onb2-steps" aria-label="Progress">${si}</ol><div class="onb2-body">${inner}</div></div></div>`;
+        return `<div class="onb2" data-kind="${kind}"><div class="onb2-card">${this.stepper(['Register', 'Create Resume', 'Finish'], 0)}<div class="onb2-body">${inner}</div></div></div>`;
       }
-      const L = LAB[kind], all = cur >= L.length, no = all ? L.length : cur + 1;
-      const items = L.map((l, i) => `<li class="${all || i < cur ? 'done' : i === cur ? 'cur' : ''}"><span class="dot">${all || i < cur ? '✓' : ''}</span><span class="lbl">${l}</span></li>`).join('');
-      return `<div class="onb2" data-kind="${kind}"><div class="onb2-card ${wide ? 'wide' : ''}"><div class="onb2-top"><span class="onb2-step">${all ? 'All done' : `Step ${no} of ${L.length}`}</span></div><ol class="onb2-steps" aria-label="Progress">${items}</ol><div class="onb2-body">${inner}</div></div></div>`;
+      const L = LAB[kind], all = cur >= L.length;
+      return `<div class="onb2" data-kind="${kind}"><div class="onb2-card ${wide ? 'wide' : ''}">${this.stepper(L, all ? L.length - 1 : cur, false, all)}<div class="onb2-body">${inner}</div></div></div>`;
     },
     set(root, i) {
       if (!root) return;

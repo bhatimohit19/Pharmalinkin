@@ -19,6 +19,7 @@
     db().jobs.forEach(j => { if (j.status === 'Scheduled' && j.publishAt && new Date(j.publishAt).getTime() <= now) { j.status = 'Published'; j.publishedAt = j.publishAt; n++; } });
     if (n) PL.store.save();
   }
+  PL.releaseScheduledJobs = releaseScheduled;
 
   /* ---------- dashboard ---------- */
   reg('/employer/dashboard', (ctx, u) => {
@@ -69,6 +70,7 @@
 
   function publishCheck(u, j) {
     const us = PL.q.usage(u.id), co = company(u);
+    if (u.role === 'admin') return '';
     if (PH()) return '';
     if (us.sub && us.sub.status !== 'Active') return 'Your subscription is not active. Renew it to publish jobs.';
     if (j.status !== 'Published' && j.status !== 'Pending Approval' && us.jobs >= us.plan.limits.jobs) return `Your ${us.plan.name} plan allows ${us.plan.limits.jobs} active job(s). Upgrade to post more.`;
@@ -78,7 +80,7 @@
   }
   function submitJob(u, j) {
     const err = publishCheck(u, j); if (err) { ui().toast(err, 'err'); return false; }
-    j.status = db().settings.moderation && !PH() ? 'Pending Approval' : 'Published';
+    j.status = db().settings.moderation && !PH() && u.role !== 'admin' ? 'Pending Approval' : 'Published';
     if (j.status === 'Pending Approval') db().users.filter(x => x.role === 'admin').forEach(a => PL.notify(a.id, 'moderation', 'Job awaiting approval', j.title + ' was submitted.', '/admin/jobs'));
     return true;
   }
@@ -89,82 +91,219 @@
   PL.act('job-dup', d => { const j = JSON.parse(JSON.stringify(PL.q.job(d.id))); j.id = PL.store.id('j'); j.title += ' (Copy)'; j.status = 'Draft'; j.views = 0; j.featured = false; j.createdAt = F().iso(); db().jobs.unshift(j); PL.store.save(); ui().toast('Duplicated as draft'); PL.rerender(); });
   PL.act('job-del', async d => { if (!(await ui().confirm({ title: 'Delete this job?', message: 'Applications for it will remain on record.', confirmText: 'Delete', danger: true }))) return; db().jobs = db().jobs.filter(j => j.id !== d.id); PL.store.save(); ui().toast('Job deleted'); PL.rerender(); });
 
-  /* ---------- job wizard ---------- */
-  const JSTEPS = ['Basics', 'Requirements', 'Compensation', 'Description', 'Screening', 'Review'];
+  /* ---------- four-step job-posting flow ---------- */
+  const JOB_STEPS = ['Job Details', 'Job Description', 'Contact Details', 'Preview & Publish'];
   const lines = t => (t || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const defaultJob = () => ({ title: '', department: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, questions: [], closingDate: '', contactName: '', contactEmail: '', contactPhone: '', contactVisibility: { email: false, phone: false } });
+  const descriptionInputs = d => JSON.stringify([d.title, d.department, d.specialization, d.city, d.state, d.type, d.workMode, d.qualification, d.expMin, d.expMax, d.salMin, d.salMax, d.skills]);
+  function collectJobForm(form) {
+    const w = PL.state.jw, d = w && w.d;
+    if (!d || !form) return;
+    const before = descriptionInputs(d), x = ui().formData(form);
+    Object.keys(x).forEach(k => { if (!['contactEmailVisible', 'contactPhoneVisible'].includes(k)) d[k] = x[k]; });
+    if (x.skills !== undefined) d.skills = String(x.skills).split(',').map(v => v.trim()).filter(Boolean);
+    if (x.contactEmailVisible !== undefined || x.contactPhoneVisible !== undefined) d.contactVisibility = { email: !!x.contactEmailVisible, phone: !!x.contactPhoneVisible };
+    d.location = d.city && d.state ? d.city + ', ' + d.state : '';
+    d.locations = d.location ? [d.location] : [];
+    if (before !== descriptionInputs(d) && d.descriptionAI) {
+      d.description = ''; d.descriptionAI = false; w.descriptionStatus = 'idle'; w.descriptionFingerprint = '';
+      w.completed = w.completed.map((done, i) => i < 1 ? done : false);
+    }
+    return x;
+  }
+  function ready(w, step) {
+    const d = w.d;
+    if (step === 0) return !!(d.title.trim() && d.department && d.city.trim() && d.state.trim() && d.type && d.workMode && d.closingDate && d.skills.length && (d.companyId || d.companyName && d.companyName.trim()) && +d.expMax >= +d.expMin && (!d.salMax || +d.salMax >= +d.salMin));
+    if (step === 1) return !!(d.descriptionAI && d.description.trim().length >= 30 && w.descriptionFingerprint === descriptionInputs(d));
+    if (step === 2) return !!(d.contactName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.contactEmail) && /^[+\d][\d\s-]{8,15}$/.test(d.contactPhone));
+    return ready(w, 0) && ready(w, 1) && ready(w, 2);
+  }
+  function suggestedTitle(d) {
+    const role = d.specialization ? `${d.department} – ${d.specialization.trim()}` : d.department;
+    return role + (d.city ? ' – ' + d.city.trim() : '');
+  }
+  async function generateTitle(w) {
+    const token = w.titleToken = (w.titleToken || 0) + 1;
+    w.titleStatus = 'loading'; updateTitleStatus(w);
+    await new Promise(resolve => setTimeout(resolve, 450));
+    if (PL.state.jw !== w || token !== w.titleToken || w.titleEdited) return;
+    try {
+      if (!w.d.department || !w.d.city.trim()) throw new Error('Choose a job category and location first.');
+      w.d.title = suggestedTitle(w.d); w.titleStatus = 'ready';
+    } catch (error) {
+      w.titleStatus = 'error'; w.titleError = error.message;
+    }
+    const form = document.querySelector('form[data-form="job-step"]');
+    if (form && form.elements.title && w.titleStatus === 'ready') form.elements.title.value = w.d.title;
+    updateTitleStatus(w);
+  }
+  async function generateDescription(w) {
+    if (!w.d.title.trim() || !w.d.department || !w.d.city.trim()) throw new Error('Complete the job title, category, and location first.');
+    await new Promise(resolve => setTimeout(resolve, 850));
+    const d = w.d, duties = PL.deptText(d.department).r;
+    const experience = +d.expMin === +d.expMax ? `${d.expMin} years` : `${d.expMin}–${d.expMax} years`;
+    const pay = d.salMin ? `The indicated compensation is ₹${d.salMin}–${d.salMax || d.salMin} LPA.` : 'Compensation will be discussed based on experience and role fit.';
+    return [
+      `${d.title} — ${d.department}${d.specialization ? ` (${d.specialization})` : ''}. This ${d.type.toLowerCase()} role is based in ${d.city}, ${d.state} (${d.workMode.toLowerCase()}). The successful candidate will contribute to the team’s objectives while following applicable pharmaceutical quality, safety, and compliance practices.`,
+      `Key responsibilities:\n${duties.map(item => `• ${item}`).join('\n')}`,
+      `Candidate profile: ${d.qualification} or equivalent, with ${experience} of relevant experience. Helpful skills include ${(d.skills || []).join(', ')}. ${pay}`,
+      `This position has ${d.vacancies} opening${+d.vacancies === 1 ? '' : 's'} and is open for applications until ${F().date(d.closingDate)}.`
+    ].join('\n\n');
+  }
+  function setNextButton(form) {
+    const w = PL.state.jw, button = form && form.querySelector('[type=submit]');
+    if (button && w) button.disabled = !ready(w, w.step) || (w.step === 0 && w.titleStatus === 'loading') || (w.step === 1 && w.descriptionStatus === 'loading');
+  }
+  function titleStatus(w) {
+    if (w.titleStatus === 'loading') return `<span class="jb-ai-status" role="status">${I('zap', 16)} Generating suggested title…</span>`;
+    if (w.titleStatus === 'error') return `<p class="err jb-ai-error" role="alert">${E(w.titleError || 'Title generation failed.')}</p><button class="btn btn-secondary btn-sm" type="button" data-action="job-title-retry">Retry title suggestion</button>`;
+    return `<span class="jb-ai-status">${w.titleStatus === 'ready' ? 'Demo AI title suggestion · editable' : 'AI title suggestion · demo'}</span><button class="btn btn-secondary btn-sm" type="button" data-action="job-title-retry">${w.titleStatus === 'ready' ? 'Regenerate title' : 'Generate suggested title'}</button>`;
+  }
+  function updateTitleStatus(w) {
+    const tools = document.querySelector('.jb-title-tools');
+    if (tools) tools.innerHTML = titleStatus(w);
+    const form = document.querySelector('form[data-form="job-step"]');
+    if (form) setNextButton(form);
+  }
+  function preview(d, u) {
+    const c = d.companyId ? PL.q.company(d.companyId) : null, companyName = c ? c.name : d.companyName;
+    const contact = [d.contactVisibility.email ? E(d.contactEmail) : '', d.contactVisibility.phone ? E(d.contactPhone) : ''].filter(Boolean);
+    return `<section class="jb-post-preview"><div class="jb-post-company">${c ? ui().logo(c, 48) : ''}<div><h2>${E(d.title)}</h2><b>${E(companyName || '')}</b></div></div>
+      <p class="muted">${E(d.department)}${d.specialization ? ` · ${E(d.specialization)}` : ''} · ${E(d.city)}, ${E(d.state)} · ${E(d.type)} · ${E(d.workMode)}</p>
+      <div class="jb-post-preview-description">${E(d.description)}</div>
+      <h3>Candidate contact</h3>${contact.length ? `<p>${contact.join(' · ')}</p>` : '<p class="muted">No contact details will be shown; candidates apply through PharmaLinkIn.</p>'}
+      <p class="small"><b>Apply button:</b> PharmaLinkIn application form (default)</p></section>`;
+  }
+  function postingCompany(u, d) {
+    const own = company(u);
+    if (own) return own;
+    const name = (d.companyName || '').trim();
+    const c = { id: PL.store.id('c'), name, industry: 'Pharmaceuticals', size: '1-10', hq: d.location, locations: [d.city], verification: 'Pending', description: `${name} job posting profile.`, website: '', specializations: [], culture: '', benefits: [], social: { linkedin: '', twitter: '' }, logoImg: '', coverImg: '', createdAt: F().iso(), recruiterIds: [u.id] };
+    db().companies.push(c);
+    return c;
+  }
   function jobWizard(ctx, u) {
     const editId = ctx.params.id;
     let w = PL.state.jw;
     if (!w || w.editId !== editId || ctx.fresh) {
       const j = editId ? PL.q.job(editId) : null;
-      if (editId && (!j || j.recruiterId !== u.id)) return ui().empty('briefcase', 'Job not found', 'This job does not exist or is not yours.', '<a class="btn" href="#/employer/jobs">Back</a>');
-      w = PL.state.jw = { editId, step: 0, d: j ? JSON.parse(JSON.stringify(j)) : { title: '', department: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', questions: [], featured: false, closingDate: '' } };
+      if (editId && (!j || (u.role !== 'admin' && j.recruiterId !== u.id && (!company(u) || j.companyId !== company(u).id)))) return ui().empty('briefcase', 'Job not found', 'This job does not exist or is not yours.', '<a class="btn" href="#/employer/jobs">Back</a>');
+      const d = j ? Object.assign(defaultJob(), JSON.parse(JSON.stringify(j))) : defaultJob();
+      const own = company(u); if (own) { d.companyId = own.id; d.companyName = own.name; }
+      d.contactName = d.contactName || u.name; d.contactEmail = d.contactEmail || u.email; d.contactPhone = d.contactPhone || u.phone || '';
+      d.contactVisibility = d.contactVisibility || { email: false, phone: false };
+      w = PL.state.jw = { editId, step: 0, completed: [false, false, false, false], d, titleEdited: !!j, titleStatus: j ? 'ready' : 'idle', descriptionStatus: j && j.descriptionAI ? 'ready' : 'idle', descriptionFingerprint: j && j.descriptionAI ? descriptionInputs(d) : '', titleError: '' };
     }
     const d = w.d, s = w.step, f = (n, l, x) => ui().field(Object.assign({ name: n, label: l, value: d[n] == null ? '' : d[n] }, x || {}));
-    const bar = `<div class="step-bar" role="list">${JSTEPS.map((t, i) => `<div role="listitem" class="step ${i < s ? 'done' : i === s ? 'active' : ''}" ${i === s ? 'aria-current="step"' : ''}>${i < s ? '✓' : i + 1}. ${t}</div>`).join('')}</div>`;
-    let body = '';
-    if (s === 0) body = f('title', 'Job title', { required: true }) + f('department', 'Department / category', { type: 'select', options: PL.CATEGORIES, required: true, placeholder: '' }) + f('type', 'Employment type', { type: 'select', options: PL.JOB_TYPES }) + f('workMode', 'Work mode', { type: 'select', options: PL.WORK_MODES }) + f('city', 'City', { required: true }) + f('state', 'State', { required: true }) + f('vacancies', 'Vacancies', { type: 'number', min: 1 }) + f('closingDate', 'Closing date', { type: 'date', required: true });
-    if (s === 1) body = f('qualification', 'Minimum qualification', { type: 'select', options: PL.QUALS }) + f('expMin', 'Min experience (yrs)', { type: 'number', min: 0 }) + f('expMax', 'Max experience (yrs)', { type: 'number', min: 0 }) + f('skills', 'Skills (comma separated)', { value: (d.skills || []).join(', '), full: true, required: true }) + f('preferred', 'Preferred qualifications', { full: true });
-    if (s === 2) body = f('salMin', 'Min salary (₹ LPA)', { type: 'number', min: 0 }) + f('salMax', 'Max salary (₹ LPA)', { type: 'number', min: 0 }) + f('incentives', 'Incentives') + f('travel', 'Travel requirement') + f('benefits', 'Benefits (one per line)', { type: 'textarea', rows: 4, full: true, value: (d.benefits || []).join('\n') });
-    if (s === 3) body = f('description', 'Role overview', { type: 'textarea', rows: 5, full: true, required: true, minlength: 30 }) + f('responsibilities', 'Responsibilities (one per line)', { type: 'textarea', rows: 5, full: true, value: (d.responsibilities || []).join('\n') });
-    if (s === 4) body = f('questions', 'Screening questions (one per line)', { type: 'textarea', rows: 4, full: true, value: (d.questions || []).join('\n'), help: 'Candidates answer these when applying.' }) + `<div class="field full"><label class="check"><input type="checkbox" name="featured" ${d.featured ? 'checked' : ''}> Feature this job (uses a featured slot)</label></div>`;
-    if (s === 5) {
+    const status = titleStatus(w);
+    let body;
+    if (s === 0) body = `<div class="form-grid">${!d.companyId ? f('companyName', 'Company name', { required: true, help: 'The company profile will be marked pending verification in this prototype.' }) : ''}${f('department', 'Job category', { type: 'select', options: PL.CATEGORIES, required: true, placeholder: '' })}${f('specialization', 'Job segment / specialization', { placeholder: 'Optional, e.g. Oncology' })}${f('city', 'City', { required: true })}${f('state', 'State', { required: true })}${f('type', 'Employment type', { type: 'select', options: PL.JOB_TYPES, required: true })}${f('workMode', 'Work mode', { type: 'select', options: PL.WORK_MODES, required: true })}${f('qualification', 'Minimum qualification', { type: 'select', options: PL.QUALS, required: true })}${f('expMin', 'Minimum experience (years)', { type: 'number', min: 0, required: true })}${f('expMax', 'Maximum experience (years)', { type: 'number', min: 0, required: true })}${f('skills', 'Key skills (comma separated)', { value: (d.skills || []).join(', '), full: true, required: true })}${f('salMin', 'Minimum salary (₹ LPA)', { type: 'number', min: 0 })}${f('salMax', 'Maximum salary (₹ LPA)', { type: 'number', min: 0 })}${f('vacancies', 'Number of openings', { type: 'number', min: 1, required: true })}${f('closingDate', 'Application closing date', { type: 'date', required: true })}${f('title', 'Suggested job title', { required: true })}<div class="field full jb-title-tools">${status}</div></div>`;
+    if (s === 1) body = `<div class="jb-ai-panel"><div class="jb-ai-intro">${I('zap', 20)}<div><h3>Let AI write the job description</h3><p>We’ll use the job details you provided to create a professional description. Editing is disabled.</p></div></div>
+      <button class="btn jb-ai-generate" type="button" data-action="job-description-generate" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${w.descriptionStatus === 'ready' ? 'Regenerate with AI' : w.descriptionStatus === 'error' ? 'Retry AI generation' : 'Generate Job Description with AI'}</button>
+      ${w.descriptionStatus === 'loading' ? `<p class="jb-ai-status" role="status">${I('zap', 16)} Generating job description…</p>` : ''}
+      ${w.descriptionStatus === 'error' ? `<p class="err jb-ai-error" role="alert">${E(w.descriptionError || 'AI generation failed. Please retry.')}</p>` : ''}
+      ${d.descriptionAI ? `<div class="jb-ai-output" aria-label="AI-generated job description" aria-readonly="true">${E(d.description)}</div><p class="xs muted">Generated with demo AI. Connect a production AI service before launch.</p>` : ''}</div>`;
+    if (s === 2) body = `<div class="form-grid">${f('contactName', 'Contact name', { required: true })}${f('contactEmail', 'Contact email', { type: 'email', required: true })}${f('contactPhone', 'Contact phone', { type: 'tel', required: true })}<div class="field full"><span class="label">Show contact details to candidates</span><div class="jb-contact-options"><label class="check"><input type="checkbox" name="contactEmailVisible" ${d.contactVisibility.email ? 'checked' : ''}> Show email address</label><label class="check"><input type="checkbox" name="contactPhoneVisible" ${d.contactVisibility.phone ? 'checked' : ''}> Show phone number</label></div></div></div>`;
+    if (s === 3) {
       const err = publishCheck(u, d);
-      const mode = d.publishMode || 'now', pa = d.publishAt || localDT(new Date(Date.now() + 864e5));
-      const opt = (v, t, s) => `<label class="pub-opt ${mode === v ? 'on' : ''}"><input type="radio" name="publishMode" value="${v}" ${mode === v ? 'checked' : ''}><span><b>${t}</b><span class="xs muted">${s}</span></span></label>`;
-      const sched = PH() ? `<div class="full"><h4 style="margin:6px 0">When should it go live?</h4><div class="pub-opts">${opt('now', 'Publish now', 'Visible to candidates immediately')}${opt('schedule', 'Schedule', 'Pick a date and time to go live')}${opt('draft', 'Save as draft', 'Keep it private and finish later')}</div><div class="pub-when" ${mode === 'schedule' ? '' : 'hidden'}><label class="xs muted" for="publishAt">Go live on</label><input type="datetime-local" id="publishAt" name="publishAt" value="${E(pa)}" min="${localDT()}"></div><div class="field-err" id="publishAtErr" role="alert"></div></div>` : '';
-      body = `<div class="full">${PH() ? '' : ui().notice(db().settings.moderation ? 'Moderation is on: your job will be reviewed by an admin before going live.' : 'Moderation is off: your job will go live immediately.', '')}${err ? ui().notice(E(err), 'err') : ''}<h3>${E(d.title)}</h3><p class="muted">${E(d.city)}, ${E(d.state)} · ${E(d.type)} · ${E(d.workMode)} · ${E(d.qualification)} · ${d.expMin}-${d.expMax} yrs</p><p>${E(d.description)}</p><p class="small"><b>Skills:</b> ${E((d.skills || []).join(', '))}</p><p class="small"><b>Closes:</b> ${F().date(d.closingDate)}</p></div>${sched}`;
+      body = `${err ? ui().notice(E(err), 'err') : ''}${preview(d, u)}${db().settings.moderation && u.role !== 'admin' ? ui().notice('Your job will be submitted for admin review before it becomes visible to candidates.', '') : ''}`;
     }
-    return `${ui().pageHead(editId ? 'Edit job' : 'Post a job')}${bar}<form class="card pad-lg form-grid" data-form="job-step" novalidate>${body}<div class="full row between">${s > 0 ? '<button type="button" class="btn btn-secondary" data-action="job-back">Back</button>' : '<span></span>'}<div class="row"><button type="button" class="btn btn-secondary" data-action="job-draft">Save draft</button>${s < 5 ? '<button class="btn" type="submit">Next</button>' : `<button class="btn" type="submit" id="job-submit">${PH() ? ({ schedule: 'Schedule job', draft: 'Save draft' }[d.publishMode] || 'Publish job') : 'Submit job'}</button>`}</div></div></form>`;
+    const stepper = PL.onb.stepper(JOB_STEPS, s, true);
+    const heading = s === 0 ? '<h2>Job details</h2><p class="muted">Start with the role information. A suggested title will be generated from these details.</p>' : s === 1 ? '<h2>AI-generated job description</h2><p class="muted">A successful AI generation is required to continue.</p>' : s === 2 ? '<h2>Contact details</h2><p class="muted">Choose which contact details candidates can see.</p>' : '<h2>Preview your job</h2><p class="muted">Review how candidates will see this job before publishing.</p>';
+    const primary = s === 3 ? 'Publish job' : s === 0 && w.titleStatus === 'loading' ? 'Generating title…' : 'Next';
+    return `<div class="onb2 jb-job-posting"><div class="onb2-card wide jb-job-post-card">${stepper}<div class="onb2-body">${heading}<form class="jb-job-form" data-form="job-step" novalidate>${body}<div class="row between mt jb-job-actions">${s ? `<div class="row"><button type="button" class="btn btn-secondary" data-action="job-back">← Back</button>${s === 3 ? '<button type="button" class="btn btn-secondary" data-action="job-goto" data-i="0">Edit</button>' : ''}</div>` : '<span></span>'}<button class="btn" type="submit" ${!ready(w, s) || w.titleStatus === 'loading' || w.descriptionStatus === 'loading' ? 'disabled' : ''}>${primary}</button></div></form></div></div></div>`;
   }
   reg('/employer/jobs/new', jobWizard, 'Post a job');
+  PL.router.add('/job-post', jobWizard, { layout: 'jobs', roles: ['candidate', 'recruiter', 'advertiser', 'admin'], title: 'Post a job' });
   reg('/employer/jobs/:id/edit', jobWizard, 'Edit job');
-  function collect(f) {
-    const w = PL.state.jw, d = w.d, x = ui().formData(f), s = w.step;
-    const pick = (...k) => k.forEach(n => { if (x[n] !== undefined) d[n] = x[n]; });
-    if (s === 0) pick('title', 'department', 'type', 'workMode', 'city', 'state', 'vacancies', 'closingDate');
-    if (s === 1) { pick('qualification', 'expMin', 'expMax', 'preferred'); d.skills = (x.skills || '').split(',').map(t => t.trim()).filter(Boolean); }
-    if (s === 2) { pick('salMin', 'salMax', 'incentives', 'travel'); d.benefits = lines(x.benefits); }
-    if (s === 3) { pick('description'); d.responsibilities = lines(x.responsibilities); }
-    if (s === 4) { d.questions = lines(x.questions); d.featured = !!f.elements.featured.checked; }
-    d.location = d.city && d.state ? d.city + ', ' + d.state : d.location; d.locations = [d.location];
-  }
-  function persist(u, status) {
-    const w = PL.state.jw, d = w.d; let j = w.editId ? PL.q.job(w.editId) : null;
-    if (!j) { j = Object.assign({}, d, { id: PL.store.id('j'), companyId: company(u).id, recruiterId: u.id, views: 0, createdAt: F().iso(), status: 'Draft' }); db().jobs.unshift(j); w.editId = j.id; }
+  PL.form('job-step', form => {
+    const w = PL.state.jw, u = me();
+    if (!w || !u) return;
+    collectJobForm(form);
+    if (w.step === 0) {
+      if (!ui().validate(form)) return;
+      if (+w.d.expMax < +w.d.expMin) return ui().setError(form, 'expMax', 'Maximum experience must be at least minimum experience.');
+      if (w.d.salMax && +w.d.salMax < +w.d.salMin) return ui().setError(form, 'salMax', 'Maximum salary must be at least minimum salary.');
+      if (new Date(w.d.closingDate) < new Date(F().today())) return ui().setError(form, 'closingDate', 'Choose today or a future date.');
+      if (!w.d.title.trim()) { ui().toast('Generate or enter a job title before continuing.', 'err'); return; }
+    }
+    if (w.step === 1 && !ready(w, 1)) { ui().toast('Generate the job description with AI before continuing.', 'err'); return; }
+    if (w.step === 2 && !ui().validate(form)) return;
+    if (!ready(w, w.step)) return;
+    w.completed[w.step] = true;
+    if (w.step < 3) { w.step++; PL.rerender(); window.scrollTo(0, 0); return; }
+    if (!JOB_STEPS.every((_, i) => i === 3 || w.completed[i]) || !ready(w, 3) || !w.d.descriptionAI) { ui().toast('Complete all steps and generate the job description with AI before publishing.', 'err'); return; }
+    const j = persistJob(u, 'submit');
+    if (!j) return;
+    PL.state.jw = null;
+    ui().toast(j.status === 'Pending Approval' ? 'Submitted for admin approval' : 'Job published');
+    PL.go(u.role === 'recruiter' ? '/employer/jobs' : '/job-results?browse=1');
+  });
+  function persistJob(u, status) {
+    const w = PL.state.jw, d = w.d, c = d.companyId ? PL.q.company(d.companyId) : postingCompany(u, d);
+    if (!c) { ui().toast('Select a valid company before publishing.', 'err'); return null; }
+    d.companyId = c.id; d.recruiterId = u.id; d.authorRole = u.role;
+    d.vacancies = +d.vacancies || 1; d.expMin = +d.expMin || 0; d.expMax = +d.expMax || 0; d.salMin = +d.salMin || 0; d.salMax = +d.salMax || 0;
+    d.location = d.city + ', ' + d.state; d.locations = [d.location]; d.aiGeneratedDescription = !!d.descriptionAI;
+    let j = w.editId ? PL.q.job(w.editId) : null;
+    if (!j) { j = Object.assign({}, d, { id: PL.store.id('j'), views: 0, createdAt: F().iso(), status: 'Draft' }); db().jobs.unshift(j); w.editId = j.id; }
     else Object.assign(j, d);
-    j.vacancies = +j.vacancies || 1; j.expMin = +j.expMin || 0; j.expMax = +j.expMax || 0; j.salMin = +j.salMin || 0; j.salMax = +j.salMax || 0;
-    if (status === 'submit') { j.wasFeatured = false; if (!submitJob(u, j)) { PL.store.save(); return null; } } else if (!['Published', 'Pending Approval', 'Paused'].includes(j.status)) j.status = 'Draft';
+    if (status === 'submit') { j.wasFeatured = false; if (!submitJob(u, j)) { PL.store.save(); return null; } }
     PL.store.save(); return j;
   }
-  PL.form('job-step', f => {
-    const w = PL.state.jw, u = me();
-    if (w.step < 5 && !ui().validate(f)) return;
-    if (w.step === 1 && +f.elements.expMax.value < +f.elements.expMin.value) return ui().setError(f, 'expMax', 'Max must be ≥ min');
-    if (w.step === 2 && f.elements.salMax.value && +f.elements.salMax.value < +f.elements.salMin.value) return ui().setError(f, 'salMax', 'Max must be ≥ min');
-    if (w.step < 5) { collect(f); w.step++; PL.rerender(); window.scrollTo(0, 0); return; }
-    if (PH()) {
-      const mode = (f.querySelector('input[name=publishMode]:checked') || {}).value || 'now', w2 = PL.state.jw.d; w2.publishMode = mode;
-      if (mode === 'draft') { persist(u, 'draft'); PL.state.jw = null; ui().toast('Draft saved'); PL.go('/employer/jobs'); return; }
-      if (mode === 'schedule') {
-        const at = f.querySelector('[name=publishAt]').value, err = f.querySelector('#publishAtErr');
-        if (!at || new Date(at).getTime() <= Date.now()) { err.textContent = 'Choose a date and time in the future.'; return; }
-        w2.publishAt = at; const j = persist(u, 'draft'); j.status = 'Scheduled'; j.publishAt = at; PL.store.save();
-        PL.state.jw = null; PL.vf('ejobs').tab = 'Scheduled'; PL.vf('ejobs').page = 1; ui().toast('Job scheduled for ' + pubFmt(at)); PL.go('/employer/jobs'); return;
-      }
+  PL.act('job-back', () => {
+    const form = document.querySelector('form[data-form="job-step"]'), w = PL.state.jw;
+    if (!w || !form || !w.step) return;
+    collectJobForm(form); w.step--; PL.rerender();
+  });
+  PL.act('job-goto', d => {
+    const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]'), target = +d.i;
+    if (!w || target < 0 || target >= w.step || !w.completed[target]) return;
+    if (form) collectJobForm(form);
+    w.step = target; PL.rerender();
+  });
+  PL.act('job-title-retry', () => {
+    const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]');
+    if (!w) return;
+    if (form) collectJobForm(form);
+    w.titleEdited = false; generateTitle(w);
+  });
+  PL.act('job-description-generate', async () => {
+    const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]');
+    if (!w || w.descriptionStatus === 'loading') return;
+    if (form) collectJobForm(form);
+    const token = w.descriptionToken = (w.descriptionToken || 0) + 1;
+    w.descriptionStatus = 'loading'; w.descriptionError = ''; PL.rerender();
+    try {
+      const description = await generateDescription(w);
+      if (PL.state.jw !== w || token !== w.descriptionToken) return;
+      w.d.description = description; w.d.responsibilities = PL.deptText(w.d.department).r.slice(); w.d.descriptionAI = true;
+      w.descriptionFingerprint = descriptionInputs(w.d); w.descriptionStatus = 'ready';
+    } catch (error) {
+      if (PL.state.jw !== w || token !== w.descriptionToken) return;
+      w.descriptionStatus = 'error'; w.descriptionError = error.message || 'AI generation failed. Please retry.';
     }
-    const j = persist(u, 'submit'); if (!j) return;
-    PL.state.jw = null; ui().toast(j.status === 'Pending Approval' ? 'Submitted for admin approval' : 'Job published'); PL.go('/employer/jobs');
+    PL.rerender();
+  });
+  function syncTitleInputs(form) {
+    const w = PL.state.jw; if (!w || !form || w.step !== 0) return;
+    const input = form.elements.title;
+    if (input) { const current = input.value; if (current !== w.d.title) { w.d.title = current; w.titleEdited = true; w.titleToken = (w.titleToken || 0) + 1; w.titleStatus = current ? 'ready' : 'idle'; } }
+  }
+  document.addEventListener('input', e => {
+    const form = e.target.closest && e.target.closest('form[data-form="job-step"]');
+    if (!form) return;
+    if (e.target.name === 'title' && PL.state.jw) { PL.state.jw.titleEdited = true; PL.state.jw.titleStatus = e.target.value ? 'ready' : 'idle'; PL.state.jw.titleToken = (PL.state.jw.titleToken || 0) + 1; }
+    collectJobForm(form); syncTitleInputs(form); setNextButton(form);
   });
   document.addEventListener('change', e => {
-    if (!e.target.matches || !e.target.matches('input[name="publishMode"]')) return;
-    const f = e.target.form, m = e.target.value, w = PL.state.jw; if (w) w.d.publishMode = m;
-    f.querySelectorAll('.pub-opt').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
-    const when = f.querySelector('.pub-when'); if (when) when.hidden = m !== 'schedule';
-    const b = f.querySelector('#job-submit'); if (b) b.textContent = { schedule: 'Schedule job', draft: 'Save draft' }[m] || 'Publish job';
+    const form = e.target.closest && e.target.closest('form[data-form="job-step"]');
+    if (!form) return;
+    if (e.target.name === 'title' && PL.state.jw) { PL.state.jw.titleEdited = true; PL.state.jw.titleToken = (PL.state.jw.titleToken || 0) + 1; }
+    collectJobForm(form); syncTitleInputs(form);
+    if (PL.state.jw && PL.state.jw.step === 0 && ['department', 'specialization', 'city', 'state'].includes(e.target.name) && !PL.state.jw.titleEdited && PL.state.jw.d.department && PL.state.jw.d.city.trim()) generateTitle(PL.state.jw);
+    setNextButton(form);
   });
-  PL.act('job-back', () => { const f = document.querySelector('form[data-form="job-step"]'); if (f) collect(f); PL.state.jw.step--; PL.rerender(); });
-  PL.act('job-draft', () => { const f = document.querySelector('form[data-form="job-step"]'); if (f && PL.state.jw.step < 5) collect(f); if (!PL.state.jw.d.title) return ui().toast('Add a job title first', 'err'); persist(me(), 'draft'); PL.state.jw = null; ui().toast('Draft saved'); PL.go('/employer/jobs'); });
 
   /* ---------- applicants ---------- */
   const APP_ST = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Offer', 'Hired', 'Rejected'];

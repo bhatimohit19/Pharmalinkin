@@ -316,10 +316,10 @@
   });
   PL.mobileNav = (role, path) => {
     const routes = {
-      candidate: { home: '/app/profile', jobs: '/job-results', post: '/app/feed', dashboard: '/dashboard' },
-      recruiter: { home: '/', jobs: '/employer/jobs', post: '/employer/jobs/new', dashboard: '/employer/dashboard' },
-      advertiser: { home: '/', jobs: '/advertiser/campaigns', post: '/advertiser/campaigns/new', dashboard: '/advertiser/dashboard' },
-      admin: { home: '/', jobs: '/admin/jobs', post: '', dashboard: '/admin/dashboard' }
+      candidate: { home: '/app/profile', jobs: '/job-results', post: '/job-post', dashboard: '/dashboard' },
+      recruiter: { home: '/', jobs: '/employer/jobs', post: '/job-post', dashboard: '/employer/dashboard' },
+      advertiser: { home: '/', jobs: '/advertiser/campaigns', post: '/job-post', dashboard: '/advertiser/dashboard' },
+      admin: { home: '/', jobs: '/admin/jobs', post: '/job-post', dashboard: '/admin/dashboard' }
     };
     const links = routes[role] || { home: '/', jobs: '/job-results', post: '/login', dashboard: '/login' };
     const isJobs = role === 'candidate' ? /^\/(job-search|job-results|job\/|saved-jobs|my-applications)/.test(path) : path === links.jobs || path.startsWith(links.jobs + '/');
@@ -327,7 +327,7 @@
     const isHome = path === links.home;
     const isPost = !!links.post && path === links.post;
     const item = (label, href, icon, active) => `<a class="jb-mobile-item ${active ? 'active' : ''}" href="#${href}" ${active ? 'aria-current="page"' : ''}><span class="jb-mobile-icon">${I(icon, 20)}</span><span>${label}</span></a>`;
-    const post = links.post ? `<a class="jb-mobile-item jb-post-item ${isPost ? 'active' : ''}" href="#${links.post}" aria-label="${role === 'recruiter' ? 'Post a job' : role === 'advertiser' ? 'Create campaign' : role === 'candidate' ? 'Create post' : 'Post'}"><span class="jb-post-plus">${I('plus', 23)}</span><span>${role === 'recruiter' ? 'Post Job' : role === 'advertiser' ? 'Campaign' : 'Post'}</span></a>` : `<button type="button" class="jb-mobile-item" data-action="jb-post-denied"><span class="jb-post-plus">${I('plus', 23)}</span><span>Post</span></button>`;
+    const post = `<a class="jb-mobile-item jb-post-item ${isPost ? 'active' : ''}" href="#${links.post}" aria-label="Post a job"><span class="jb-post-plus">${I('plus', 23)}</span><span>Post Job</span></a>`;
     return `<nav class="jb-mobile-nav" aria-label="Mobile primary navigation">${item('Home', links.home, 'home', isHome)}${item('Jobs', links.jobs, 'briefcase', isJobs)}${post}<button type="button" class="jb-mobile-item" data-action="jb-social"><span class="jb-mobile-icon">${I('globe', 20)}</span><span>Social</span></button>${item(role === 'candidate' ? 'Dashboard' : 'Dashboard', links.dashboard, 'dash', isDashboard)}</nav>`;
   };
   const searchHome = (p = parse({})) => {
@@ -611,19 +611,24 @@
     const pend = u && u.role === 'candidate' ? takePend(j.id) : null;
     if (pend && pend.t === 'save' && !PL.q.isSaved(u.id, j.id)) toggleSave(u, j.id);
     const c = co(j), saved = u && PL.q.isSaved(u.id, j.id), ap = applied(u, j.id);
+    const externalApplyUrl = /^https?:\/\//i.test(j.externalApplyUrl || '') ? j.externalApplyUrl : '';
+    const visibleContacts = j.contactVisibility ? [
+      j.contactVisibility.email && j.contactEmail ? `<a href="mailto:${E(j.contactEmail)}">${E(j.contactEmail)}</a>` : '',
+      j.contactVisibility.phone && j.contactPhone ? `<a href="tel:${E(j.contactPhone)}">${E(j.contactPhone)}</a>` : ''
+    ].filter(Boolean) : [];
     const html = `<div class="container jb-detail"><a href="#${back}" class="small">${I('left', 14)} ${backTxt}</a>
       <div class="jb-detail-sections">
         <section class="card jb-dhead"><div class="jb-top"><div class="jb-detail-logo">${ui().logo(c, 76)}</div><div class="grow"><h1>${E(j.title)}</h1><div class="jb-co">${E(c.name)}</div><div class="jb-category">${I('tag', 15)} ${E(j.department)}</div></div></div>
           <div class="jb-meta big"><span>${I('briefcase', 15)}${expTxt(j)}</span><span>${I('rupee', 15)}${salTxt(j)}</span><span>${I('pin', 15)}${E(j.location || j.city)}</span><span>${I('clock', 15)}${E(j.type)} · ${E(j.workMode)}</span></div>
           <div class="jb-dstats"><span>Posted: <b>${days(j) === 0 ? 'Today' : days(j) + ' day' + (days(j) === 1 ? '' : 's') + ' ago'}</b></span><span>Openings: <b>${j.vacancies}</b></span><span>Applicants: <b>${(j.views || 0) % 97 + 3 + (ap ? 1 : 0)}</b></span></div>
         </section>
-        <section class="card pad-lg jb-description"><h2>About this job</h2><p>${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}${j.preferred ? `<h3>Preferred candidate</h3><p>${E(j.preferred)}</p>` : ''}${(j.benefits || []).length ? `<h3>Benefits</h3>${li(j.benefits)}` : ''}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}
+        <section class="card pad-lg jb-description"><h2>About this job</h2><p>${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}${j.preferred ? `<h3>Preferred candidate</h3><p>${E(j.preferred)}</p>` : ''}${(j.benefits || []).length ? `<h3>Benefits</h3>${li(j.benefits)}` : ''}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${visibleContacts.length ? `<h3>Contact</h3><p>${E(j.contactName || '')}${j.contactName ? ' · ' : ''}${visibleContacts.join(' · ')}</p>` : ''}
           <div class="jb-detail-facts"><div><span>Department</span><b>${E(j.department)}</b></div><div><span>Industry</span><b>${E(c.industry)}</b></div><div><span>Education</span><b>${E(j.qualification || 'Not specified')}</b></div><div><span>Work mode</span><b>${E(j.workMode)}</b></div></div>
           ${(j.skills || []).length ? `<h3>Key skills</h3><div class="jb-tags big">${j.skills.map(s => `<span>${E(s)}</span>`).join('')}</div>` : ''}
           <div class="jb-company-summary">${ui().logo(c, 44)}<div><b>${E(c.name)}</b><div class="small muted">${E(c.industry)}${c.hq ? ' · ' + E(c.hq) : ''}</div>${c.description ? `<p>${E(c.description)}</p>` : ''}</div></div>
         </section>
       </div>
-      <div class="jb-detail-actions">${ap ? `<span class="badge b-green">${I('check', 14)} Application submitted</span>` : `<button class="btn" data-action="jb-apply" data-id="${j.id}">Apply</button>`}<button class="btn btn-secondary" data-action="jb-contact" data-id="${j.id}">${I('phone', 16)} View Contact</button><button class="btn btn-secondary" data-action="jb-like" data-id="${j.id}" aria-pressed="${liked(u, j.id)}">${I('like', 16)} ${liked(u, j.id) ? 'Liked' : 'Like'}</button><button class="btn btn-secondary" data-action="jb-save" data-id="${j.id}" aria-pressed="${!!saved}">${I('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button><button class="btn btn-secondary" data-action="jb-share" data-id="${j.id}">${I('share', 16)} Share Job</button></div>
+      <div class="jb-detail-actions">${ap ? `<span class="badge b-green">${I('check', 14)} Application submitted</span>` : externalApplyUrl ? `<a class="btn" href="${E(externalApplyUrl)}" target="_blank" rel="noopener noreferrer">Apply ${I('external', 14)}</a>` : `<button class="btn" data-action="jb-apply" data-id="${j.id}">Apply</button>`}${visibleContacts.length ? '' : `<button class="btn btn-secondary" data-action="jb-contact" data-id="${j.id}">${I('phone', 16)} View Contact</button>`}<button class="btn btn-secondary" data-action="jb-like" data-id="${j.id}" aria-pressed="${liked(u, j.id)}">${I('like', 16)} ${liked(u, j.id) ? 'Liked' : 'Like'}</button><button class="btn btn-secondary" data-action="jb-save" data-id="${j.id}" aria-pressed="${!!saved}">${I('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button><button class="btn btn-secondary" data-action="jb-share" data-id="${j.id}">${I('share', 16)} Share Job</button></div>
       </div>`;
     return pend && pend.t === 'apply' && !ap && u ? { html, after: () => setTimeout(() => confirmApply(u, j), 50) } : html;
   }, { layout: 'jobs', title: 'Job details' });
@@ -633,13 +638,17 @@
     if (!u) return PL.auth.requireLogin('/job/' + d.id, 'Sign in to view contact details.');
     if (u.role !== 'candidate') return ui().toast('Contact details are available to candidate accounts.', 'info');
     const j = PL.q.job(d.id), recruiter = j && PL.q.user(j.recruiterId);
-    const phone = String(recruiter && recruiter.phone || '').replace(/\D/g, '');
-    const email = recruiter && String(recruiter.email || '').trim();
     const links = [];
-    if (phone) links.push(`<a class="btn jb-contact-option" href="https://wa.me/${phone}" target="_blank" rel="noopener">${I('message', 18)} WhatsApp</a>`);
-    if (phone) links.push(`<a class="btn btn-secondary jb-contact-option" href="tel:${phone}">${I('phone', 18)} Call</a>`);
-    if (email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(email)}">${I('mail', 18)} Email</a>`);
-    const content = `<p class="muted">${recruiter ? `Contact ${E(recruiter.name)} at ${E((PL.q.company(j.companyId) || {}).name || 'the hiring company')}.` : 'Contact information has not been provided for this job.'}</p>${links.length ? `<div class="jb-contact-options">${links.join('')}</div>` : '<p class="small muted">No contact options are available for this job yet.</p>'}`;
+    if (j && j.contactVisibility) {
+      if (j.contactVisibility.phone && j.contactPhone) links.push(`<a class="btn jb-contact-option" href="tel:${E(j.contactPhone)}">${I('phone', 18)} Call</a>`);
+      if (j.contactVisibility.email && j.contactEmail) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(j.contactEmail)}">${I('mail', 18)} Email</a>`);
+    } else {
+      const phone = String(recruiter && recruiter.phone || '').replace(/\D/g, ''), email = recruiter && String(recruiter.email || '').trim();
+      if (phone) links.push(`<a class="btn jb-contact-option" href="https://wa.me/${phone}" target="_blank" rel="noopener">${I('message', 18)} WhatsApp</a>`);
+      if (phone) links.push(`<a class="btn btn-secondary jb-contact-option" href="tel:${phone}">${I('phone', 18)} Call</a>`);
+      if (email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(email)}">${I('mail', 18)} Email</a>`);
+    }
+    const content = `<p class="muted">${j && j.contactVisibility ? (links.length ? `Contact ${E(j.contactName || 'the hiring team')}.` : 'The hiring team has chosen not to show contact details to candidates.') : recruiter ? `Contact ${E(recruiter.name)} at ${E((PL.q.company(j.companyId) || {}).name || 'the hiring company')}.` : 'Contact information has not been provided for this job.'}</p>${links.length ? `<div class="jb-contact-options">${links.join('')}</div>` : '<p class="small muted">No contact options are available for this job.</p>'}`;
     ui().modal({ title: 'View contact', body: content });
   });
 

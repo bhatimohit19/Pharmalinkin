@@ -133,6 +133,31 @@ body{background:#F4F6FA}
 .jb-save.on{color:var(--primary)}
 .nowrap{flex-wrap:nowrap}
 
+/* Job posting wizard reuses the profile onboarding stepper */
+.jb-job-posting{padding:24px 16px 40px}
+.jb-job-post-card{max-width:980px}
+.jb-job-post-card .onb2-body>h2{margin:0 0 4px;font-size:1.4rem}
+.jb-job-post-card .onb2-body>p{margin:0 0 18px}
+.jb-job-post-card .jb-job-form{display:block}
+.jb-job-post-card ol.onb2-steps li button{position:relative;z-index:2;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.jb-job-post-card .jb-job-actions{align-items:center}
+.jb-job-post-card .jb-job-actions .btn:disabled{opacity:.55;cursor:not-allowed}
+.jb-title-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.jb-ai-status{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.84rem}
+.jb-ai-error{margin:0}
+.jb-ai-panel{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+.jb-ai-intro{display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid var(--primary-100);border-radius:12px;background:var(--primary-50);color:var(--primary)}
+.jb-ai-intro>svg{flex:none}
+.jb-ai-intro h3{margin:0 0 4px;color:var(--text)}
+.jb-ai-intro p{margin:0;color:var(--text-2);font-size:.9rem}
+.jb-ai-generate{min-height:44px}
+.jb-ai-output{width:100%;box-sizing:border-box;padding:18px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text-2);line-height:1.7;white-space:pre-line}
+.jb-contact-options{display:flex;flex-wrap:wrap;gap:8px 18px}
+.jb-post-preview{padding:18px;border:1px solid var(--border);border-radius:14px;background:#fff}
+.jb-post-company{display:flex;align-items:center;gap:12px}
+.jb-post-company h2{margin:0 0 3px;font-size:1.3rem}
+.jb-post-preview-description{padding-top:10px;line-height:1.7;white-space:pre-line}
+
 /* Results shell */
 .jb-filters{background:#fff;border:1px solid var(--border);border-radius:20px;position:sticky;top:84px;max-height:calc(100vh - 100px);display:flex;flex-direction:column;overflow:hidden}
 .jb-fhead{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}

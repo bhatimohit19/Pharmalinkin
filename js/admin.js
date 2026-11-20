@@ -58,8 +58,37 @@
   reg('/admin/jobs', () => {
     const v = PL.vf('ajobs', { tab: 'Pending Approval', page: 1 });
     const list = db().jobs.filter(j => v.tab === 'All' || j.status === v.tab), pg = ui().paginate(list, v.page, 10);
-    return `${ui().pageHead('Job moderation')}${ui().tabs(['Pending Approval', 'Published', 'Rejected', 'All'], v.tab, 'ajobs')}${ui().table({ cols: [{ label: 'Job', render: j => `<a class="bold" href="#/jobs/${j.id}">${E(j.title)}</a><div class="xs muted">${E((PL.q.company(j.companyId) || {}).name || '')} · ${E(j.location)}</div>` }, { label: 'Recruiter', render: j => E((PL.q.user(j.recruiterId) || {}).name || '—') }, { label: 'Status', render: j => ui().badge(j.status) }, { label: '', render: j => `<div class="row">${j.status === 'Pending Approval' ? `<button class="btn btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Published">Approve</button><button class="btn btn-outline-danger btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Rejected">Reject</button>` : j.status === 'Published' ? `<button class="btn btn-outline-danger btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Rejected">Take down</button>` : ''}</div>` }], rows: pg.items, empty: 'No jobs here.' })}${ui().pager({ total: list.length, page: pg.page, per: 10, scope: 'ajobs' })}`;
+    return `${ui().pageHead('Job moderation')}${ui().tabs(['Pending Approval', 'Published', 'Rejected', 'All'], v.tab, 'ajobs')}${ui().table({ cols: [{ label: 'Job', render: j => `<a class="bold" href="#/jobs/${j.id}">${E(j.title)}</a><div class="xs muted">${E((PL.q.company(j.companyId) || {}).name || '')} · ${E(j.location)}</div>` }, { label: 'Recruiter', render: j => E((PL.q.user(j.recruiterId) || {}).name || '—') }, { label: 'Status', render: j => ui().badge(j.status) }, { label: '', render: j => `<div class="row"><button class="btn btn-secondary btn-sm" data-action="admin-job-config" data-id="${j.id}">Configure</button>${j.status === 'Pending Approval' ? `<button class="btn btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Published">Approve</button><button class="btn btn-outline-danger btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Rejected">Reject</button>` : j.status === 'Published' ? `<button class="btn btn-outline-danger btn-sm" data-action="job-mod" data-id="${j.id}" data-v="Rejected">Take down</button>` : ''}</div>` }], rows: pg.items, empty: 'No jobs here.' })}${ui().pager({ total: list.length, page: pg.page, per: 10, scope: 'ajobs' })}`;
   }, 'Jobs');
+  PL.act('admin-job-config', d => {
+    if (!me() || me().role !== 'admin') return ui().toast('Only administrators can configure job publishing options.', 'err');
+    const j = PL.q.job(d.id); if (!j) return ui().toast('This job is no longer available.', 'err');
+    const field = (name, label, type, value, options = {}) => ui().field({ name, label, type, value, ...options });
+    const body = `<p class="muted small">These publishing and paid-job settings are restricted to administrators.</p><form data-form="admin-job-config" novalidate><input type="hidden" name="jobId" value="${E(j.id)}">
+      <label class="check mb"><input type="checkbox" name="scheduleEnabled" ${j.publishAt ? 'checked' : ''}> Schedule job publication</label>
+      ${field('publishAt', 'Publish date and time', 'datetime-local', j.publishAt || '', { full: true })}
+      ${field('scheduleAttachment', 'Schedule attachment URL (optional)', 'url', j.scheduleAttachment || '', { full: true, placeholder: 'https://…' })}
+      <label class="check mb"><input type="checkbox" name="featured" ${j.featured ? 'checked' : ''}> Featured job</label>
+      <label class="check mb"><input type="checkbox" name="paidJob" ${j.paidJob ? 'checked' : ''}> Paid job configuration</label>
+      ${field('paidAmount', 'Paid job amount (₹)', 'number', j.paidAmount || '', { min: 1 })}
+      ${field('externalApplyUrl', 'Third-party application URL (optional)', 'url', j.externalApplyUrl || '', { full: true, placeholder: 'https://…' })}
+      <div class="row between mt"><button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button class="btn" type="submit">Save configuration</button></div></form>`;
+    ui().modal({ title: 'Configure job publishing', body });
+  });
+  PL.form('admin-job-config', f => {
+    const u = me(); if (!u || u.role !== 'admin') return ui().toast('Only administrators can configure job publishing options.', 'err');
+    if (!ui().validate(f)) return;
+    const x = ui().formData(f), j = PL.q.job(x.jobId); if (!j) return ui().toast('This job is no longer available.', 'err');
+    if (x.scheduleEnabled && (!x.publishAt || new Date(x.publishAt).getTime() <= Date.now())) return ui().setError(f, 'publishAt', 'Choose a future publication date and time.');
+    if (x.paidJob && +x.paidAmount <= 0) return ui().setError(f, 'paidAmount', 'Enter a positive amount for a paid job.');
+    j.featured = !!x.featured; j.paidJob = !!x.paidJob; j.paidAmount = j.paidJob ? +x.paidAmount : 0;
+    j.scheduleAttachment = x.scheduleAttachment || '';
+    if (x.scheduleEnabled) { j.publishAt = x.publishAt; j.status = 'Scheduled'; }
+    else { delete j.publishAt; if (j.status === 'Scheduled') j.status = db().settings.moderation ? 'Pending Approval' : 'Published'; }
+    j.externalApplyUrl = x.externalApplyUrl || '';
+    PL.audit('Updated job publishing configuration', 'job', j.id);
+    PL.store.save(); PL.ui.closeModals(); ui().toast('Job configuration saved'); PL.rerender();
+  });
   PL.act('job-mod', async d => {
     const j = PL.q.job(d.id); let reason = '';
     if (d.v === 'Rejected') { const x = await ui().ask({ title: 'Reject job', confirmText: 'Reject', fields: [{ name: 'reason', label: 'Reason', type: 'textarea', required: true, rows: 3 }] }); if (!x) return; reason = x.reason; j.rejectionReason = reason; }

@@ -427,6 +427,7 @@ ol.onb2-steps{list-style:none;margin:0 0 22px;padding:0;display:flex;justify-con
 ol.onb2-steps li{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;font-size:.72rem;color:var(--muted);text-align:center}
 ol.onb2-steps li:not(:last-child):after{content:'';position:absolute;top:12px;left:calc(50% + 14px);right:calc(-50% + 14px);height:2px;background:var(--border)}
 ol.onb2-steps li.done:not(:last-child):after{background:var(--primary)}
+ol.onb2-steps li button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
 ol.onb2-steps .dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;position:relative;z-index:1}
 ol.onb2-steps li.cur{color:var(--primary);font-weight:600}ol.onb2-steps li.cur .dot{border-color:var(--primary);box-shadow:0 0 0 4px rgba(21,94,239,.15);background:radial-gradient(circle,var(--primary) 35%,#fff 40%)}
 ol.onb2-steps li.done .dot{background:var(--primary);border-color:var(--primary)}

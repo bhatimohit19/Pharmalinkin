@@ -70,7 +70,7 @@
     const a = active(ctx.path, nav.concat([['Home', '/app/dashboard', 'home'], ['Jobs', '/app/applications', 'briefcase'], ['Jobs', '/app/saved-jobs', 'briefcase'], ['Jobs', '/app/job-alerts', 'briefcase']]));
     const actKey = a ? a[1] : '';
     const mapKey = { '/app/dashboard': '/app/feed', '/app/applications': '/app/jobs', '/app/saved-jobs': '/app/jobs', '/app/job-alerts': '/app/jobs' }[actKey] || actKey;
-    const cta = u.role === 'candidate' ? null : ({ recruiter: ['Post a job', '/employer/jobs/new'], advertiser: ['New campaign', '/advertiser/campaigns/new'] }[u.role] || ['Dashboard', PL.auth.homeFor(u)]);
+    const cta = u.role === 'candidate' ? null : ({ recruiter: ['Post a job', '/job-post'], advertiser: ['New campaign', '/advertiser/campaigns/new'] }[u.role] || ['Dashboard', PL.auth.homeFor(u)]);
     const profileAction = ctx.path === '/app/profile' && !ctx.query.preview
       ? '<span aria-hidden="true"></span>'
       : ctx.path === '/app/profile/experience' ? `<a href="#/app/profile/experience/new?return=profile" aria-label="Add experience">${I('plus', 19)}</a>`
