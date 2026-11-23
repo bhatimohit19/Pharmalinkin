@@ -94,12 +94,14 @@
   /* ---------- four-step job-posting flow ---------- */
   const JOB_STEPS = ['Job Details', 'Job Description', 'Contact Details', 'Preview & Publish'];
   const lines = t => (t || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const defaultJob = () => ({ title: '', department: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, questions: [], closingDate: '', contactName: '', contactEmail: '', contactPhone: '', contactVisibility: { email: false, phone: false } });
+  const defaultJob = () => ({ title: '', department: '', designation: '', divisionName: '', segment: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', pinCode: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, questions: [], closingDate: '', banner: '', contactName: '', contactEmail: '', contactPhone: '', alternateContactName: '', alternateContactPhone: '', alternateContactPhone2: '', alternateContactEmail: '', contactVisibility: { email: false, phone: false, toggle: false }, alternateContacts: [], freeApply: false, scheduleEnabled: false, scheduleAttachment: '', publishAt: '', featured: false, paidJob: false, paidAmount: 0, externalApplyUrl: '' });
   const descriptionInputs = d => JSON.stringify([d.title, d.department, d.specialization, d.city, d.state, d.type, d.workMode, d.qualification, d.expMin, d.expMax, d.salMin, d.salMax, d.skills]);
   function collectJobForm(form) {
     const w = PL.state.jw, d = w && w.d;
     if (!d || !form) return;
     const before = descriptionInputs(d), x = ui().formData(form);
+    if (x.contactVisibilityToggle !== undefined) d.contactVisibility.toggle = !!x.contactVisibilityToggle;
+    if (x.segment !== undefined) d.specialization = d.segment = x.segment;
     Object.keys(x).forEach(k => { if (!['contactEmailVisible', 'contactPhoneVisible'].includes(k)) d[k] = x[k]; });
     if (x.skills !== undefined) d.skills = String(x.skills).split(',').map(v => v.trim()).filter(Boolean);
     if (x.contactEmailVisible !== undefined || x.contactPhoneVisible !== undefined) d.contactVisibility = { email: !!x.contactEmailVisible, phone: !!x.contactPhoneVisible };
@@ -113,9 +115,9 @@
   }
   function ready(w, step) {
     const d = w.d;
-    if (step === 0) return !!(d.title.trim() && d.department && d.city.trim() && d.state.trim() && d.type && d.workMode && d.closingDate && d.skills.length && (d.companyId || d.companyName && d.companyName.trim()) && +d.expMax >= +d.expMin && (!d.salMax || +d.salMax >= +d.salMin));
+    if (step === 0) return +d.expMax >= +d.expMin && (!d.salMax || +d.salMax >= +d.salMin);
     if (step === 1) return !!(d.descriptionAI && d.description.trim().length >= 30 && w.descriptionFingerprint === descriptionInputs(d));
-    if (step === 2) return !!(d.contactName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.contactEmail) && /^[+\d][\d\s-]{8,15}$/.test(d.contactPhone));
+    if (step === 2) return !d.contactVisibility.toggle || !!(d.contactName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.contactEmail) && /^[+\d][\d\s-]{8,15}$/.test(d.contactPhone));
     return ready(w, 0) && ready(w, 1) && ready(w, 2);
   }
   function suggestedTitle(d) {
@@ -138,16 +140,19 @@
     updateTitleStatus(w);
   }
   async function generateDescription(w) {
-    if (!w.d.title.trim() || !w.d.department || !w.d.city.trim()) throw new Error('Complete the job title, category, and location first.');
     await new Promise(resolve => setTimeout(resolve, 850));
     const d = w.d, duties = PL.deptText(d.department).r;
     const experience = +d.expMin === +d.expMax ? `${d.expMin} years` : `${d.expMin}–${d.expMax} years`;
     const pay = d.salMin ? `The indicated compensation is ₹${d.salMin}–${d.salMax || d.salMin} LPA.` : 'Compensation will be discussed based on experience and role fit.';
+    const title = d.title.trim() || d.department || 'Open role';
+    const location = [d.city, d.state].filter(Boolean).join(', ') || 'a location to be confirmed';
+    const skills = (d.skills || []).join(', ') || 'role-relevant skills';
+    const closingDate = d.closingDate ? F().date(d.closingDate) : 'a date to be confirmed';
     return [
-      `${d.title} — ${d.department}${d.specialization ? ` (${d.specialization})` : ''}. This ${d.type.toLowerCase()} role is based in ${d.city}, ${d.state} (${d.workMode.toLowerCase()}). The successful candidate will contribute to the team’s objectives while following applicable pharmaceutical quality, safety, and compliance practices.`,
+      `${title}${d.specialization ? ` (${d.specialization})` : ''}. This ${d.type.toLowerCase()} role is based in ${location} (${d.workMode.toLowerCase()}). The successful candidate will contribute to the team’s objectives while following applicable pharmaceutical quality, safety, and compliance practices.`,
       `Key responsibilities:\n${duties.map(item => `• ${item}`).join('\n')}`,
-      `Candidate profile: ${d.qualification} or equivalent, with ${experience} of relevant experience. Helpful skills include ${(d.skills || []).join(', ')}. ${pay}`,
-      `This position has ${d.vacancies} opening${+d.vacancies === 1 ? '' : 's'} and is open for applications until ${F().date(d.closingDate)}.`
+      `Candidate profile: ${d.qualification || 'a relevant qualification'} or equivalent, with ${experience} of relevant experience. Helpful skills include ${skills}. ${pay}`,
+      `This position has ${d.vacancies || 1} opening${+d.vacancies === 1 ? '' : 's'} and is open for applications until ${closingDate}.`
     ].join('\n\n');
   }
   function setNextButton(form) {
@@ -197,16 +202,65 @@
     const d = w.d, s = w.step, f = (n, l, x) => ui().field(Object.assign({ name: n, label: l, value: d[n] == null ? '' : d[n] }, x || {}));
     const status = titleStatus(w);
     let body;
-    if (s === 0) body = `<div class="form-grid">${!d.companyId ? f('companyName', 'Company name', { required: true, help: 'The company profile will be marked pending verification in this prototype.' }) : ''}${f('department', 'Job category', { type: 'select', options: PL.CATEGORIES, required: true, placeholder: '' })}${f('specialization', 'Job segment / specialization', { placeholder: 'Optional, e.g. Oncology' })}${f('city', 'City', { required: true })}${f('state', 'State', { required: true })}${f('type', 'Employment type', { type: 'select', options: PL.JOB_TYPES, required: true })}${f('workMode', 'Work mode', { type: 'select', options: PL.WORK_MODES, required: true })}${f('qualification', 'Minimum qualification', { type: 'select', options: PL.QUALS, required: true })}${f('expMin', 'Minimum experience (years)', { type: 'number', min: 0, required: true })}${f('expMax', 'Maximum experience (years)', { type: 'number', min: 0, required: true })}${f('skills', 'Key skills (comma separated)', { value: (d.skills || []).join(', '), full: true, required: true })}${f('salMin', 'Minimum salary (₹ LPA)', { type: 'number', min: 0 })}${f('salMax', 'Maximum salary (₹ LPA)', { type: 'number', min: 0 })}${f('vacancies', 'Number of openings', { type: 'number', min: 1, required: true })}${f('closingDate', 'Application closing date', { type: 'date', required: true })}${f('title', 'Suggested job title', { required: true })}<div class="field full jb-title-tools">${status}</div></div>`;
-    if (s === 1) body = `<div class="jb-ai-panel"><div class="jb-ai-intro">${I('zap', 20)}<div><h3>Let AI write the job description</h3><p>We’ll use the job details you provided to create a professional description. Editing is disabled.</p></div></div>
-      <button class="btn jb-ai-generate" type="button" data-action="job-description-generate" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${w.descriptionStatus === 'ready' ? 'Regenerate with AI' : w.descriptionStatus === 'error' ? 'Retry AI generation' : 'Generate Job Description with AI'}</button>
+    if (s === 0) body = `<div class="jb-client-step1">
+      ${!d.companyId ? f('companyName', 'Company', { help: 'The company profile will be marked pending verification in this prototype.' }) : `<div class="field"><label>Company</label><div class="jb-company-value">${ui().logo(PL.q.company(d.companyId), 38)}<b>${E(PL.q.company(d.companyId).name)}</b></div></div>`}
+      ${f('title', 'Job title')}<div class="field jb-title-tools">${status}</div>
+      ${f('designation', 'Job designation')}
+      ${f('type', 'Employment type', { type: 'select', options: PL.JOB_TYPES })}
+      ${f('department', 'Job category', { type: 'select', options: PL.CATEGORIES, placeholder: '' })}
+      ${f('divisionName', 'Division name')}
+      ${f('segment', 'Segment', { value: d.segment || d.specialization })}
+      ${f('city', 'Job location / HQ')}
+      ${f('state', 'State')}
+      ${f('pinCode', 'PIN code', { type: 'text' })}
+      ${f('salMin', 'CTC / minimum salary (₹ LPA)', { type: 'number', min: 0 })}
+      ${f('salMax', 'CTC / maximum salary (₹ LPA)', { type: 'number', min: 0 })}
+      ${f('workMode', 'Work mode', { type: 'select', options: PL.WORK_MODES })}
+      ${f('qualification', 'Minimum qualification', { type: 'select', options: PL.QUALS })}
+      ${f('expMin', 'Minimum experience (years)', { type: 'number', min: 0 })}
+      ${f('expMax', 'Maximum experience (years)', { type: 'number', min: 0 })}
+      ${f('skills', 'Key skills (comma separated)', { value: (d.skills || []).join(', '), full: true })}
+      ${f('vacancies', 'Number of openings', { type: 'number', min: 1 })}
+      ${f('closingDate', 'Application closing date', { type: 'date' })}
+      </div><button class="btn jb-ai-generate jb-step1-ai" type="button" data-action="job-description-generate" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${I('zap', 18)} Write Job Description with AI</button>`;
+    if (s === 1) body = `<div class="jb-description-step">
+      <section class="jb-banner-field"><div class="jb-banner-head"><label>Job banner <span class="muted">(Optional)</span></label><button class="btn btn-outline-primary btn-sm" type="button" data-action="job-banner">${d.banner ? 'Change File' : 'Choose File'}</button></div><div class="jb-banner-preview">${d.banner ? `<img src="${E(d.banner)}" alt="Job banner preview">` : `<div class="jb-banner-logo"><b>Pharma</b><b>LinkIn</b><small>Connect · Hire · Grow</small></div><div class="jb-banner-art">${I('briefcase', 42)}</div>`}</div></section>
+      ${f('title', 'Job title')}
+      <button class="btn jb-ai-generate" type="button" data-action="job-description-generate" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${I('zap', 18)} ${w.descriptionStatus === 'ready' ? 'Regenerate with AI' : w.descriptionStatus === 'error' ? 'Retry AI generation' : 'Generate Job Description with AI'}</button>
       ${w.descriptionStatus === 'loading' ? `<p class="jb-ai-status" role="status">${I('zap', 16)} Generating job description…</p>` : ''}
       ${w.descriptionStatus === 'error' ? `<p class="err jb-ai-error" role="alert">${E(w.descriptionError || 'AI generation failed. Please retry.')}</p>` : ''}
-      ${d.descriptionAI ? `<div class="jb-ai-output" aria-label="AI-generated job description" aria-readonly="true">${E(d.description)}</div><p class="xs muted">Generated with demo AI. Connect a production AI service before launch.</p>` : ''}</div>`;
-    if (s === 2) body = `<div class="form-grid">${f('contactName', 'Contact name', { required: true })}${f('contactEmail', 'Contact email', { type: 'email', required: true })}${f('contactPhone', 'Contact phone', { type: 'tel', required: true })}<div class="field full"><span class="label">Show contact details to candidates</span><div class="jb-contact-options"><label class="check"><input type="checkbox" name="contactEmailVisible" ${d.contactVisibility.email ? 'checked' : ''}> Show email address</label><label class="check"><input type="checkbox" name="contactPhoneVisible" ${d.contactVisibility.phone ? 'checked' : ''}> Show phone number</label></div></div></div>`;
+      ${d.descriptionAI ? `<div class="jb-ai-output jb-ai-output-editor" aria-label="AI-generated job description" aria-readonly="true"><div class="jb-ai-toolbar">${I('bold', 18)} ${I('italic', 18)} ${I('list', 18)} ${I('link', 18)}</div><div class="jb-ai-output-text">${E(d.description)}</div><div class="jb-ai-count">${d.description.length} / 2000</div></div><p class="xs muted">Generated with demo AI. Editing is disabled.</p>` : ''}</div>`;
+    if (s === 2) body = `<div class="jb-contact-step">
+      <div class="jb-contact-toggle"><div>${I('users', 26)}<div><b>Contact to Show</b><small>Toggle to show or hide contact details in this job post.</small></div></div><label class="jb-switch"><input type="checkbox" name="contactVisibilityToggle" ${d.contactVisibility.toggle ? 'checked' : ''}><span></span></label></div>
+      <h3>Contact Details</h3>
+      <div class="jb-contact-card"><span class="jb-contact-badge">Primary Contact</span><div class="jb-contact-grid">
+        ${f('contactName', 'Contact person')}
+        ${f('contactPhone', 'Mobile number', { type: 'tel' })}
+        ${f('alternateContactPhone', 'Alternative number (Optional)', { type: 'tel' })}
+        ${f('contactEmail', 'Email address', { type: 'email' })}
+      </div></div>
+      <div class="jb-contact-card"><span class="jb-contact-badge alternate">Alternate Contact</span><div class="jb-contact-grid">
+        ${f('alternateContactName', 'Contact person')}
+        ${f('alternateContactPhone', 'Mobile number', { type: 'tel' })}
+        ${f('alternateContactPhone2', 'Alternative number (Optional)', { type: 'tel' })}
+        ${f('alternateContactEmail', 'Email address', { type: 'email' })}
+      </div></div>
+      <div class="jb-contact-options"><label class="check"><input type="checkbox" name="contactEmailVisible" ${d.contactVisibility.email ? 'checked' : ''}> Show email address</label><label class="check"><input type="checkbox" name="contactPhoneVisible" ${d.contactVisibility.phone ? 'checked' : ''}> Show phone number</label></div>
+      </div>`;
     if (s === 3) {
       const err = publishCheck(u, d);
-      body = `${err ? ui().notice(E(err), 'err') : ''}${preview(d, u)}${db().settings.moderation && u.role !== 'admin' ? ui().notice('Your job will be submitted for admin review before it becomes visible to candidates.', '') : ''}`;
+      const adminOnly = u.role === 'admin';
+      body = `${err ? ui().notice(E(err), 'err') : ''}
+        <div class="jb-verification-info">${I('shield', 26)}<div><b>Review &amp; Publish Your Job</b><small>Please verify the details before publishing your job.</small></div></div>
+        <div class="jb-publish-option"><div class="jb-publish-option-head">${I('calendar', 26)}<div><b>Schedule a Job</b><small>Choose when to publish your job post.</small></div></div>
+          ${adminOnly ? `<label class="jb-select-row"><input type="checkbox" name="scheduleEnabled" ${d.scheduleEnabled ? 'checked' : ''}> <span>Schedule for a later date</span></label><div class="jb-schedule-fields"><input type="datetime-local" name="publishAt" value="${E(d.publishAt || '')}" aria-label="Publish date and time"></div>` : '<label class="jb-select-row"><input type="checkbox" checked disabled> <span>Publish Immediately</span></label>'}
+        </div>
+        ${adminOnly ? `<section class="jb-upload-option"><div class="jb-publish-option-head">${I('paperclip', 26)}<div><b>Attach File <span class="muted">(Optional)</span></b><small>Upload a JPEG or PDF job poster / company brochure.</small></div></div><div class="jb-dropzone"><input type="url" name="scheduleAttachment" value="${E(d.scheduleAttachment || '')}" placeholder="https://example.com/brochure.pdf" aria-label="Attachment URL"></div></section>` : ''}
+        <section class="jb-link-option"><div class="jb-publish-option-head">${I('link', 26)}<div><b>Customise Job Link <span class="muted">(Optional)</span></b><small>Create a custom URL or external application link.</small></div></div><div class="jb-link-field"><input type="url" name="externalApplyUrl" value="${E(d.externalApplyUrl || '')}" placeholder="https://example.com/apply"><span>${I('external', 18)}</span></div></section>
+        ${adminOnly ? `<section class="jb-feature-card"><div class="jb-feature-head">${I('star', 26)}<div><b>Feature This Job <span class="jb-premium">Premium</span></b><small>Get more visibility with a featured listing.</small></div></div><label class="jb-feature-toggle"><span>Enable Featured Job</span><input type="checkbox" name="featured" ${d.featured ? 'checked' : ''}></label></section>
+        <section class="jb-feature-card"><div class="jb-feature-head">${I('users', 26)}<div><b>Free Vacancy to Apply</b><small>Allow candidates to apply through PharmaLinkIn without a subscription.</small></div></div><label class="jb-feature-toggle"><span>Enable Free Apply</span><input type="checkbox" name="freeApply" ${d.freeApply ? 'checked' : ''}></label></section>` : ''}
+        ${preview(d, u)}
+        ${db().settings.moderation && u.role !== 'admin' ? ui().notice('Your job will be reviewed by our team before going live on PharmaLinkIn.', '') : ''}`;
     }
     const stepper = PL.onb.stepper(JOB_STEPS, s, true);
     const heading = s === 0 ? '<h2>Job details</h2><p class="muted">Start with the role information. A suggested title will be generated from these details.</p>' : s === 1 ? '<h2>AI-generated job description</h2><p class="muted">A successful AI generation is required to continue.</p>' : s === 2 ? '<h2>Contact details</h2><p class="muted">Choose which contact details candidates can see.</p>' : '<h2>Preview your job</h2><p class="muted">Review how candidates will see this job before publishing.</p>';
@@ -224,8 +278,7 @@
       if (!ui().validate(form)) return;
       if (+w.d.expMax < +w.d.expMin) return ui().setError(form, 'expMax', 'Maximum experience must be at least minimum experience.');
       if (w.d.salMax && +w.d.salMax < +w.d.salMin) return ui().setError(form, 'salMax', 'Maximum salary must be at least minimum salary.');
-      if (new Date(w.d.closingDate) < new Date(F().today())) return ui().setError(form, 'closingDate', 'Choose today or a future date.');
-      if (!w.d.title.trim()) { ui().toast('Generate or enter a job title before continuing.', 'err'); return; }
+      if (w.d.closingDate && new Date(w.d.closingDate) < new Date(F().today())) return ui().setError(form, 'closingDate', 'Choose today or a future date.');
     }
     if (w.step === 1 && !ready(w, 1)) { ui().toast('Generate the job description with AI before continuing.', 'err'); return; }
     if (w.step === 2 && !ui().validate(form)) return;
@@ -248,7 +301,14 @@
     let j = w.editId ? PL.q.job(w.editId) : null;
     if (!j) { j = Object.assign({}, d, { id: PL.store.id('j'), views: 0, createdAt: F().iso(), status: 'Draft' }); db().jobs.unshift(j); w.editId = j.id; }
     else Object.assign(j, d);
-    if (status === 'submit') { j.wasFeatured = false; if (!submitJob(u, j)) { PL.store.save(); return null; } }
+    if (status === 'submit') {
+      j.wasFeatured = false;
+      if (!submitJob(u, j)) { PL.store.save(); return null; }
+      if (u.role === 'admin' && d.scheduleEnabled && d.publishAt && new Date(d.publishAt).getTime() > Date.now()) {
+        j.status = 'Scheduled';
+        j.publishAt = d.publishAt;
+      }
+    }
     PL.store.save(); return j;
   }
   PL.act('job-back', () => {
@@ -256,6 +316,12 @@
     if (!w || !form || !w.step) return;
     collectJobForm(form); w.step--; PL.rerender();
   });
+  PL.act('job-banner', () => ui().pickImage(img => {
+    const w = PL.state.jw;
+    if (!w) return;
+    w.d.banner = img;
+    PL.rerender();
+  }));
   PL.act('job-goto', d => {
     const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]'), target = +d.i;
     if (!w || target < 0 || target >= w.step || !w.completed[target]) return;
