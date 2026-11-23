@@ -67,6 +67,7 @@
   R.add('/', () => {
     const jobs = PL.q.publicJobs().sort((a, b) => (b.featured - a.featured) || (new Date(b.createdAt) - new Date(a.createdAt))).slice(0, 6);
     const comps = db().companies.filter(PL.q.verified).slice(0, 4), news = db().news.slice(0, 3);
+    const socialLinks = (db().settings.adminSocialLinks || []).slice();
     const counts = c => PL.q.publicJobs().filter(j => j.department === c).length;
     return `<section class="hero"><div class="container hero-grid"><div><span class="badge b-blue">Pharma careers & network</span><h1 style="margin-top:12px">Where pharma professionals <span>connect, grow and get hired</span></h1><p class="muted" style="font-size:1.05rem">Discover roles across sales, regulatory, clinical research, quality, manufacturing and more – and follow the people and companies shaping the industry.</p>
         <form data-form="home-search" class="card pad mt" role="search" style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;padding:12px"><div class="field" style="margin:0"><label class="sr" for="hq">Job title or keyword</label><input id="hq" name="q" placeholder="Job title, skill or company"></div><div class="field" style="margin:0"><label class="sr" for="hl">Location</label><input id="hl" name="loc" placeholder="City or state"></div><button class="btn" type="submit">${I('search', 16)} Search jobs</button></form>
@@ -77,6 +78,7 @@
     ${PL.ads ? PL.ads.homeBand() : ''}
     <section class="section"><div class="container"><div class="section-head"><h2>Verified employers</h2><a href="#/companies">All companies ${I('arrow', 14)}</a></div><div class="grid g4">${comps.map(cmp.companyCard).join('')}</div></div></section>
     <section class="section"><div class="container"><div class="section-head"><h2>Industry news</h2><a href="#/news">More news ${I('arrow', 14)}</a></div><div class="grid g3">${news.map(newsCard).join('')}</div></div></section>
+    ${socialLinks.length ? `<section class="section"><div class="container"><div class="section-head"><h2>Follow PharmaLinkIn</h2></div><div class="grid g4">${socialLinks.map(link => `<a class="cat-tile" href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${I('globe', 18)}<span class="grow">${E(link.label || 'Social link')}</span>${I('arrow', 14)}</a>`).join('')}</div></div></section>` : ''}
     <section class="section"><div class="container"><div class="grid g3">
       <div class="card pad">${I('user', 24)}<h3>For candidates</h3><p class="muted small">Build a profile, upload your resume, apply with one workflow and track every application.</p><a class="btn btn-secondary btn-sm" href="#/register?role=candidate">Create profile</a></div>
       <div class="card pad">${I('briefcase', 24)}<h3>For employers</h3><p class="muted small">Post jobs, manage applicants, schedule interviews and discover verified talent.</p><a class="btn btn-secondary btn-sm" href="#/pricing">See plans</a></div>

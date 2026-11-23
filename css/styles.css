@@ -535,6 +535,7 @@ ol.onb2-steps li.done .dot{background:var(--primary);border-color:var(--primary)
 .land-card h3{margin:0}.land-card p{margin:0 0 8px}.land-art{display:flex;justify-content:center}
 .land-feats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .land-feat{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:.88rem}.land-feat span{width:48px;height:48px;border-radius:14px;background:var(--primary-50);color:var(--primary);display:flex;align-items:center;justify-content:center}
+.land-social{margin-top:24px;text-align:left}.land-social h2{font-size:1.05rem;margin:0 0 10px;text-align:center}.land-social-links{display:flex;justify-content:center;flex-wrap:wrap;gap:8px}.land-social-links a{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:.82rem}.land-social-links a:hover{border-color:#9CC8F2;text-decoration:none}
 
 .soon{font-size:.68rem;font-weight:600;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:2px 8px;margin-left:6px}.social-row .btn[disabled]{opacity:.6;cursor:not-allowed}
 .land-feat:nth-child(1) span{background:#e6efff;color:#2563eb}.land-feat:nth-child(2) span{background:#e5f6ec;color:#16a34a}.land-feat:nth-child(3) span{background:#f0e9fe;color:#7c3aed}.land-feat:nth-child(4) span{background:#fff0e3;color:#ea580c}

@@ -41,7 +41,12 @@
 
   const demoProfile = p => ({ onboarded: true, level: 'Experienced', dob: '1996-05-14', resumeFile: p.resume ? p.resume.name : '', education: [{ id: 'e0', level: '10th', degree: 'High School (10th)', board: 'CBSE', institute: 'Demo Public School, Mumbai', year: '2012', grade: '85', current: false }, { id: 'e00', level: '12th', degree: 'Intermediate (12th) (Science)', board: 'CBSE', institute: 'Demo Junior College, Mumbai', year: '2014', grade: '80', current: false }, { id: 'e1', level: 'Graduation', degree: 'B.Pharm', board: '', institute: 'Demo College of Pharmacy, Mumbai', year: '2022', grade: '8.2', current: false }] });
   function seed() {
-    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false }, categories: PL.CATEGORIES.slice(), templates: [
+    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false, adminSocialLinks: [
+      { id: 'sl1', url: 'https://www.facebook.com/pharmalinkin/', label: 'Facebook', createdAt: ago(30) },
+      { id: 'sl2', url: 'https://www.instagram.com/pharmalinkin/', label: 'Instagram', createdAt: ago(30) },
+      { id: 'sl3', url: 'https://www.linkedin.com/company/pharmalinkinjobs', label: 'LinkedIn', createdAt: ago(30) },
+      { id: 'sl4', url: 'https://twitter.com/pharmalinkin', label: 'Twitter', createdAt: ago(30) }
+    ] }, categories: PL.CATEGORIES.slice(), templates: [
       { id: 'tpl1', name: 'Application received', subject: 'We received your application', body: 'Hi {{name}}, your application for {{job}} has been received.' },
       { id: 'tpl2', name: 'Interview invitation', subject: 'Interview scheduled for {{job}}', body: 'Hi {{name}}, your interview is scheduled on {{date}} at {{time}}.' },
       { id: 'tpl3', name: 'Job approved', subject: 'Your job is live', body: 'Your job "{{job}}" has been approved and is now visible to candidates.' },
@@ -283,6 +288,10 @@
         const existingIds = new Set(this.s.jobs.map(job => job.id));
         this.s.jobs.push(...demoJobs.filter(job => !existingIds.has(job.id)));
         this.s.demoJobExpansionVersion = 1;
+      }
+      if (!this.s.settings) this.s.settings = {};
+      if (!Array.isArray(this.s.settings.adminSocialLinks)) {
+        this.s.settings.adminSocialLinks = seed().settings.adminSocialLinks;
       }
       this.s.users.forEach(x => {
         if (x.id === 'u1') {

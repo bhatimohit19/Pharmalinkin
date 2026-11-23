@@ -162,12 +162,28 @@
   /* settings */
   reg('/admin/settings', () => {
     const s = db().settings, cats = db().categories;
+    const links = s.adminSocialLinks || [];
     return `${ui().pageHead('Platform settings')}<div class="grid g2"><form class="card pad-lg" data-form="admin-settings" novalidate>${ui().field({ name: 'siteName', label: 'Site name', value: s.siteName, required: true })}${ui().field({ name: 'supportEmail', label: 'Support email', type: 'email', value: s.supportEmail, required: true })}
       <label class="check mb"><input type="checkbox" name="moderation" ${s.moderation ? 'checked' : ''}> Require admin approval for new jobs</label><label class="check mb"><input type="checkbox" name="allowRegistration" ${s.allowRegistration ? 'checked' : ''}> Allow new registrations</label><label class="check mb"><input type="checkbox" name="maintenance" ${s.maintenance ? 'checked' : ''}> Maintenance mode (banner only in demo)</label><button class="btn">Save settings</button></form>
-      <div class="card pad-lg"><h3>Job categories</h3><div class="chips mb">${cats.map(c => `<span class="chip">${E(c)} <button class="link-btn" data-action="cat-del" data-c="${E(c)}" aria-label="Remove ${E(c)}">×</button></span>`).join('')}</div><form class="row nowrap" data-form="cat-add" novalidate><label class="sr" for="newcat">New category</label><input id="newcat" name="c" class="grow" placeholder="New category" required><button class="btn btn-secondary">Add</button></form></div></div>`;
+      <div class="card pad-lg"><h3>Job categories</h3><div class="chips mb">${cats.map(c => `<span class="chip">${E(c)} <button class="link-btn" data-action="cat-del" data-c="${E(c)}" aria-label="Remove ${E(c)}">×</button></span>`).join('')}</div><form class="row nowrap" data-form="cat-add" novalidate><label class="sr" for="newcat">New category</label><input id="newcat" name="c" class="grow" placeholder="New category" required><button class="btn btn-secondary">Add</button></form></div>
+      <div class="card pad-lg"><h3>Social links</h3>${links.length ? `<div class="stack-sm mb">${links.map(link => `<a class="row nowrap" href="${E(link.url)}" target="_blank" rel="noopener noreferrer"><span class="grow">${E(link.label || link.url)}</span><span class="xs muted">${E(link.url)}</span></a>`).join('')}</div>` : '<p class="muted small">No social links posted.</p>'}<form data-form="admin-social-link" novalidate>${ui().field({ name: 'url', label: 'Social media URL', type: 'url', placeholder: 'https://...', required: true, full: true })}<button class="btn" type="submit">Post</button></form></div></div>`;
   }, 'Settings');
   PL.form('admin-settings', f => { if (!ui().validate(f)) return; const x = ui().formData(f), s = db().settings; Object.assign(s, { siteName: x.siteName, supportEmail: x.supportEmail, moderation: !!f.moderation.checked, allowRegistration: !!f.allowRegistration.checked, maintenance: !!f.maintenance.checked }); PL.audit('Updated settings', 'settings', 'site'); PL.store.save(); ui().toast('Settings saved'); PL.rerender(); });
   PL.form('cat-add', f => { const c = f.c.value.trim(); if (!c) return; if (db().categories.some(x => x.toLowerCase() === c.toLowerCase())) return ui().toast('Category exists', 'err'); db().categories.push(c); PL.audit('Added category', 'category', c); PL.store.save(); PL.rerender(); });
+  PL.form('admin-social-link', f => {
+    if (me().role !== 'admin') return ui().toast('Only administrators can post social links.', 'err');
+    if (!ui().validate(f)) return;
+    const url = ui().formData(f).url;
+    let label = 'Social link';
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      label = host.includes('facebook') ? 'Facebook' : host.includes('instagram') ? 'Instagram' : host.includes('linkedin') ? 'LinkedIn' : host.includes('twitter') || host.includes('x.com') ? 'Twitter / X' : 'Social link';
+    } catch (_) {}
+    db().settings.adminSocialLinks = db().settings.adminSocialLinks || [];
+    db().settings.adminSocialLinks.push({ id: PL.store.id('sl'), url, label, createdAt: new Date().toISOString() });
+    PL.audit('Posted social link', 'social-link', url);
+    PL.store.save(); ui().toast('Social link posted'); PL.rerender();
+  });
   PL.act('cat-del', d => { db().categories = db().categories.filter(c => c !== d.c); PL.audit('Removed category', 'category', d.c); PL.store.save(); PL.rerender(); });
 
   /* audit logs */

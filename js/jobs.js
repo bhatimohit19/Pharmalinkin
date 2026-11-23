@@ -670,7 +670,7 @@
       <main id="main" tabindex="-1" class="jb-main-mobile ${ctx.path === '/job-results' ? 'has-job-filterbar' : ''}">${html}</main><footer class="jb-foot2"><span>&copy; ${new Date().getFullYear()} PharmaLinkIn prototype &middot; Demo content only</span><button class="link-btn" data-action="reset-demo">Reset demo data</button></footer>${PL.mobileNav(role, ctx.path)}`;
   };
   PL.act('jb-social', () => {
-    const links = PL.config.socialLinks || [];
+    const links = db().settings.adminSocialLinks || PL.config.socialLinks || [];
     const body = links.length
       ? `<p class="muted">Follow PharmaLinkIn on its official social channels.</p><nav class="jb-social-links" aria-label="Official social media">${links.map(link => `<a href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${I('globe', 18)}<span>${E(link.label)}</span>${I('arrow', 14)}</a>`).join('')}</nav>`
       : '<p class="muted">Official social-media profiles are not available yet.</p>';
