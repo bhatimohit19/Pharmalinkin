@@ -15,8 +15,11 @@
   const pubFmt = v => v ? new Date(v).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   // demo stand-in for a server scheduler: go live when the publish time has passed
   function releaseScheduled() {
-    const now = Date.now(); let n = 0;
-    db().jobs.forEach(j => { if (j.status === 'Scheduled' && j.publishAt && new Date(j.publishAt).getTime() <= now) { j.status = 'Published'; j.publishedAt = j.publishAt; n++; } });
+    const now = new Date(); const today = now.toISOString().slice(0, 10); let n = 0;
+    db().jobs.forEach(j => {
+      if (j.status === 'Scheduled' && j.scheduleMinDate && j.scheduleMinDate <= today) { j.status = 'Published'; j.publishedAt = j.scheduleMinDate; n++; }
+      if (j.status === 'Published' && j.scheduleMaxDate && j.scheduleMaxDate < today) { j.status = 'Closed'; n++; }
+    });
     if (n) PL.store.save();
   }
   PL.releaseScheduledJobs = releaseScheduled;
@@ -94,7 +97,7 @@
   /* ---------- four-step job-posting flow ---------- */
   const JOB_STEPS = ['Job Details', 'Job Description', 'Contact Details', 'Preview & Publish'];
   const lines = t => (t || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const defaultJob = () => ({ title: '', department: '', designation: '', divisionName: '', segment: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', pinCode: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, questions: [], closingDate: '', banner: '', contactName: '', contactEmail: '', contactPhone: '', alternateContactName: '', alternateContactPhone: '', alternateContactPhone2: '', alternateContactEmail: '', contactVisibility: { email: false, phone: false, toggle: false }, alternateContacts: [], freeApply: false, scheduleEnabled: false, scheduleAttachment: '', publishAt: '', featured: false, paidJob: false, paidAmount: 0, externalApplyUrl: '' });
+  const defaultJob = () => ({ title: '', department: '', designation: '', divisionName: '', segment: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', pinCode: '', qualification: PL.QUALS[0], expMin: 0, expMax: 3, salMin: '', salMax: '', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, questions: [], closingDate: '', banner: '', contactName: '', contactEmail: '', contactPhone: '', alternateContactName: '', alternateContactPhone: '', alternateContactPhone2: '', alternateContactEmail: '', contactVisibility: { email: false, phone: false, toggle: false }, alternateContacts: [], freeApply: false, scheduleEnabled: false, scheduleAttachment: '', scheduleMinDate: '', scheduleMaxDate: '', publishAt: '', featured: false, paidJob: false, paidAmount: 0, externalApplyUrl: '' });
   const descriptionInputs = d => JSON.stringify([d.title, d.department, d.specialization, d.city, d.state, d.type, d.workMode, d.qualification, d.expMin, d.expMax, d.salMin, d.salMax, d.skills]);
   function collectJobForm(form) {
     const w = PL.state.jw, d = w && w.d;
@@ -255,7 +258,7 @@
       body = `${err ? ui().notice(E(err), 'err') : ''}
         <div class="jb-verification-info">${I('shield', 26)}<div><b>Review &amp; Publish Your Job</b><small>Please verify the details before publishing your job.</small></div></div>
         <div class="jb-publish-option"><div class="jb-publish-option-head">${I('calendar', 26)}<div><b>Schedule a Job</b><small>Choose when to publish your job post.</small></div></div>
-          ${adminOnly ? `<label class="jb-select-row"><input type="checkbox" name="scheduleEnabled" ${d.scheduleEnabled ? 'checked' : ''}> <span>Schedule for a later date</span></label><div class="jb-schedule-fields"><input type="datetime-local" name="publishAt" value="${E(d.publishAt || '')}" aria-label="Publish date and time"></div>` : '<label class="jb-select-row"><input type="checkbox" checked disabled> <span>Publish Immediately</span></label>'}
+          ${adminOnly ? `<label class="jb-select-row"><input type="checkbox" name="scheduleEnabled" ${d.scheduleEnabled ? 'checked' : ''}> <span>Schedule for a date range</span></label><div class="jb-schedule-fields jb-schedule-range"><label><span>Min Date</span><input type="date" name="scheduleMinDate" value="${E(d.scheduleMinDate || '')}" aria-label="Min Date"></label><label><span>Max Date</span><input type="date" name="scheduleMaxDate" value="${E(d.scheduleMaxDate || '')}" min="${E(d.scheduleMinDate || '')}" aria-label="Max Date"></label></div>` : '<label class="jb-select-row"><input type="checkbox" checked disabled> <span>Publish Immediately</span></label>'}
         </div>
         ${adminOnly ? `<section class="jb-upload-option"><div class="jb-publish-option-head">${I('paperclip', 26)}<div><b>Attach File <span class="muted">(Optional)</span></b><small>Upload a JPEG or PDF job poster / company brochure.</small></div></div><div class="jb-dropzone"><input type="url" name="scheduleAttachment" value="${E(d.scheduleAttachment || '')}" placeholder="https://example.com/brochure.pdf" aria-label="Attachment URL"></div></section>` : ''}
         <section class="jb-link-option"><div class="jb-publish-option-head">${I('link', 26)}<div><b>Customise Job Link <span class="muted">(Optional)</span></b><small>Create a custom URL or external application link.</small></div></div><div class="jb-link-field"><input type="url" name="externalApplyUrl" value="${E(d.externalApplyUrl || '')}" placeholder="https://example.com/apply"><span>${I('external', 18)}</span></div></section>
@@ -284,6 +287,10 @@
     }
     if (w.step === 1 && !ready(w, 1)) { ui().toast('Generate the job description with AI before continuing.', 'err'); return; }
     if (w.step === 2 && !ui().validate(form)) return;
+    if (w.step === 3 && u.role === 'admin' && w.d.scheduleEnabled) {
+      if (!w.d.scheduleMinDate || !w.d.scheduleMaxDate) { ui().toast('Choose both Min Date and Max Date.', 'err'); return; }
+      if (new Date(w.d.scheduleMaxDate) < new Date(w.d.scheduleMinDate)) { ui().toast('Max Date cannot be earlier than Min Date.', 'err'); return; }
+    }
     if (!ready(w, w.step)) return;
     w.completed[w.step] = true;
     if (w.step < 3) { w.step++; PL.rerender(); window.scrollTo(0, 0); return; }
@@ -306,9 +313,11 @@
     if (status === 'submit') {
       j.wasFeatured = false;
       if (!submitJob(u, j)) { PL.store.save(); return null; }
-      if (u.role === 'admin' && d.scheduleEnabled && d.publishAt && new Date(d.publishAt).getTime() > Date.now()) {
-        j.status = 'Scheduled';
-        j.publishAt = d.publishAt;
+      if (u.role === 'admin' && d.scheduleEnabled && d.scheduleMinDate && d.scheduleMaxDate) {
+        j.scheduleMinDate = d.scheduleMinDate;
+        j.scheduleMaxDate = d.scheduleMaxDate;
+        j.publishAt = d.scheduleMinDate;
+        j.status = d.scheduleMinDate <= new Date().toISOString().slice(0, 10) ? 'Published' : 'Scheduled';
       }
     }
     PL.store.save(); return j;

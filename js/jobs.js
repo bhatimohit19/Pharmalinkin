@@ -2,7 +2,6 @@
 (function () {
   const PL = window.PL, ui = () => PL.ui, db = () => PL.store.s, E = s => PL.esc(s), I = (n, s) => PL.ui.icon(n, s), F = () => PL.ui.fmt, R = PL.router;
   const lc = s => String(s || '').toLowerCase();
-  const PER = 8;
   const SAL = [['0-3', '0-3 Lakhs', 0, 3], ['3-6', '3-6 Lakhs', 3, 6], ['6-10', '6-10 Lakhs', 6, 10], ['10-15', '10-15 Lakhs', 10, 15], ['15+', '15+ Lakhs', 15, 999]];
   const FRESH = [['1', 'Last 1 day'], ['3', 'Last 3 days'], ['7', 'Last 7 days'], ['15', 'Last 15 days'], ['30', 'Last 30 days']];
   const FACET_SEARCH_MIN = 7;
@@ -13,8 +12,8 @@
   const applied = (u, id) => !!(u && PL.q.appFor(u.id, id));
 
   window.addEventListener('hashchange', e => { try { const o = new URL(e.oldURL).hash.slice(1); if (/^\/(dashboard|my-applications|saved-jobs|job-search|job-results)/.test(o)) PL.state.jbFrom = o; } catch (x) { } });
-  const parse = q => { const p = { q: q.q || '', loc: q.loc || '', exp: q.exp === undefined ? '' : q.exp, fresh: q.fresh || '', sort: q.sort || 'rel', page: Math.max(1, +q.page || 1) }; CSV.forEach(k => (p[k] = q[k] ? q[k].split(',').filter(Boolean) : [])); return p; };
-  const url = p => { const sp = new URLSearchParams(); Object.keys(p).forEach(k => { const v = Array.isArray(p[k]) ? p[k].join(',') : p[k]; if (v !== '' && v != null && !(k === 'sort' && v === 'rel') && !(k === 'page' && +v === 1)) sp.set(k, v); }); const s = sp.toString(); return '/job-results' + (s ? '?' + s : ''); };
+  const parse = q => { const per = [5, 10].includes(+q.per) ? +q.per : 10; const p = { q: q.q || '', loc: q.loc || '', exp: q.exp === undefined ? '' : q.exp, fresh: q.fresh || '', sort: q.sort || 'rel', page: Math.max(1, +q.page || 1), per }; CSV.forEach(k => (p[k] = q[k] ? q[k].split(',').filter(Boolean) : [])); return p; };
+  const url = p => { const sp = new URLSearchParams(); Object.keys(p).forEach(k => { const v = Array.isArray(p[k]) ? p[k].join(',') : p[k]; if (v !== '' && v != null && !(k === 'sort' && v === 'rel') && !(k === 'page' && +v === 1) && !(k === 'per' && +v === 10)) sp.set(k, v); }); const s = sp.toString(); return '/job-results' + (s ? '?' + s : ''); };
   const nav = (p, keepScroll) => { const u = url(p); if (keepScroll) { history.pushState(null, '', '#' + u); PL.router.resolve({ rerender: true }); } else PL.go(u); };
 
   const SYN = { mr: ['medical representative', 'medical rep'], mrs: ['medical representative'], qa: ['quality assurance'], qc: ['quality control'], ra: ['regulatory'], pv: ['pharmacovigilance'], rnd: ['research'], hr: ['human resource'], kam: ['key account'], asm: ['area sales'], rsm: ['regional sales'], zsm: ['zonal sales'], bd: ['business development'], cra: ['clinical research'], cro: ['clinical research'], ms: ['manufacturing'], qms: ['quality'], gmp: ['manufacturing', 'quality'], sales: ['medical representative', 'sales'], rep: ['representative'] };
@@ -328,7 +327,7 @@
     const isPost = !!links.post && path === links.post;
     const item = (label, href, icon, active) => `<a class="jb-mobile-item ${active ? 'active' : ''}" href="#${href}" ${active ? 'aria-current="page"' : ''}><span class="jb-mobile-icon">${I(icon, 20)}</span><span>${label}</span></a>`;
     const post = `<a class="jb-mobile-item jb-post-item ${isPost ? 'active' : ''}" href="#${links.post}" aria-label="Post a job"><span class="jb-post-plus">${I('plus', 23)}</span><span>Post Job</span></a>`;
-    return `<nav class="jb-mobile-nav" aria-label="Mobile primary navigation">${item('Home', links.home, 'home', isHome)}${item('Jobs', links.jobs, 'briefcase', isJobs)}${post}<button type="button" class="jb-mobile-item" data-action="jb-social"><span class="jb-mobile-icon">${I('globe', 20)}</span><span>Social</span></button>${item(role === 'candidate' ? 'Dashboard' : 'Dashboard', links.dashboard, 'dash', isDashboard)}</nav>`;
+    return `<nav class="jb-mobile-nav" aria-label="Mobile primary navigation">${item('Home', links.home, 'home', isHome)}${item('Jobs', links.jobs, 'briefcase', isJobs)}${post}<a class="jb-mobile-item ${path === '/social' ? 'active' : ''}" href="#/social"><span class="jb-mobile-icon">${I('globe', 20)}</span><span>Social</span></a>${item(role === 'candidate' ? 'Dashboard' : 'Dashboard', links.dashboard, 'dash', isDashboard)}</nav>`;
   };
   const searchHome = (p = parse({})) => {
     const recent = db().recentJobSearches || [];
@@ -521,6 +520,7 @@
       return;
     }
     if (t.id === 'jb-sort') { const p = current(); p.sort = t.value; p.page = 1; nav(p, true); }
+    if (t.id === 'jb-per-page') { const p = current(); p.per = +t.value === 5 ? 5 : 10; p.page = 1; nav(p, true); }
   });
   PL.act('jb-more', (d, el) => { const b = el.closest('.jb-fb'); b.classList.toggle('all'); el.textContent = b.classList.contains('all') ? 'View less' : 'View more'; });
   PL.act('jb-clear', () => { const p = current(); nav({ ...parse({}), q: p.q, loc: p.loc }, true); });
@@ -574,7 +574,7 @@
   PL.act('jb-mobile-clear', () => {
     const p = PL.state.jbMobileDraft || (PL.state.jbMobileDraft = current());
     const clean = parse({});
-    clean.q = p.q; clean.loc = p.loc; clean.sort = p.sort;
+    clean.q = p.q; clean.loc = p.loc; clean.sort = p.sort; clean.per = p.per;
     PL.state.jbMobileDraft = clean;
     renderMobileFacet(PL.state.jbMobileFacet); updateMobileFilterCount();
   });
@@ -582,7 +582,7 @@
   PL.act('jb-page', d => { const p = current(); p.page = +d.n; nav(p); });
 
   R.add('/job-results', ctx => {
-    const p = parse(ctx.query), list = run(p), pages = Math.max(1, Math.ceil(list.length / PER)), page = Math.min(p.page, pages), rows = list.slice((page - 1) * PER, page * PER);
+    const p = parse(ctx.query), per = p.per, list = run(p), pages = Math.max(1, Math.ceil(list.length / per)), page = Math.min(p.page, pages), rows = list.slice((page - 1) * per, page * per);
     PL.state.lastResults = url(p);
     const chips = []; const add = (k, v, t) => chips.push(`<button type="button" class="jb-ac" data-action="jb-rm" data-k="${k}" data-v="${E(v)}">${E(t)} ${I('x', 12)}</button>`);
     if (p.q) add('q', '', p.q); if (p.loc) add('loc', '', p.loc); if (p.exp !== '') add('exp', '', +p.exp === 0 ? 'Fresher' : p.exp + ' yrs'); if (p.fresh) add('fresh', '', (FRESH.find(f => f[0] === p.fresh) || [])[1]);
@@ -590,12 +590,14 @@
     const pg = [];
     if (pages > 1) { const from = Math.max(1, Math.min(page - 2, pages - 4)), to = Math.min(pages, from + 4); pg.push(`<button class="btn btn-secondary btn-sm" ${page === 1 ? 'disabled' : ''} data-action="jb-page" data-n="${page - 1}">${I('left', 14)} Prev</button>`); for (let i = from; i <= to; i++) pg.push(`<button class="btn btn-sm ${i === page ? '' : 'btn-secondary'}" data-action="jb-page" data-n="${i}" ${i === page ? 'aria-current="page"' : ''}>${i}</button>`); pg.push(`<button class="btn btn-secondary btn-sm" ${page === pages ? 'disabled' : ''} data-action="jb-page" data-n="${page + 1}">Next ${I('arrow', 14)}</button>`); }
     const title = p.q ? `${E(p.q)} jobs${p.loc ? ' in ' + E(p.loc) : ''}` : p.loc ? `Jobs in ${E(p.loc)}` : 'All pharma jobs';
-    const s0 = (page - 1) * PER;
+    const s0 = (page - 1) * per;
+    const range = list.length ? `${s0 + 1}-${s0 + rows.length} of ${list.length}` : '0';
+    const paginationFooter = `<div class="jb-pagination-footer"><span class="jb-pagination-range" role="status">${range}</span><label class="jb-per-page">Jobs per page: <select id="jb-per-page" aria-label="Jobs per page"><option value="5" ${per === 5 ? 'selected' : ''}>5</option><option value="10" ${per === 10 ? 'selected' : ''}>10</option></select></label></div>`;
     const activeFilterCount = (p.exp !== '' ? 1 : 0) + (p.fresh ? 1 : 0) + CSV.reduce((n, key) => n + p[key].length, 0);
     return `<div class="jb-3 jb-3r"><aside class="jb-filters" id="jb-filters" aria-label="Filters">${filters(p)}</aside>
       <section class="jb-results jb-results-screen"><div class="jb-rh"><div class="jb-count" role="status">${list.length ? `${s0 + 1} - ${s0 + rows.length} of ${list.length}` : '0'} <b>${title}</b></div><div class="jb-rt"><button type="button" class="link-btn" data-action="jb-alert">Send me jobs like these</button><label class="jb-sortlab">Sort by: <select id="jb-sort"><option value="date" ${p.sort === 'date' ? 'selected' : ''}>Date</option><option value="rel" ${p.sort !== 'date' ? 'selected' : ''}>Relevance</option></select></label><button class="btn btn-secondary btn-sm jb-fbtn" data-action="jb-fopen">${I('filter', 14)} Filters${activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div></div>
       ${chips.length ? `<div class="jb-applied">${chips.join('')}<button type="button" class="link-btn" data-action="jb-clear-all">Clear all</button></div>` : ''}
-      ${rows.length ? `<div class="jb-list">${rows.map(card).join('')}</div>${pg.length ? `<div class="jb-pager">${pg.join('')}</div>` : ''}` : `<div class="jb-none">${I('search', 40)}<h3>No jobs match your search</h3><p class="muted">Try removing some filters, checking the spelling, or searching with a broader keyword.</p><button class="btn btn-secondary" data-action="jb-clear-all">Clear search &amp; filters</button></div>`}
+      ${rows.length ? `<div class="jb-list">${rows.map(card).join('')}</div><div class="jb-pagination-block">${pg.length ? `<div class="jb-pager">${pg.join('')}</div>` : ''}${paginationFooter}</div>` : `<div class="jb-none">${I('search', 40)}<h3>No jobs match your search</h3><p class="muted">Try removing some filters, checking the spelling, or searching with a broader keyword.</p><button class="btn btn-secondary" data-action="jb-clear-all">Clear search &amp; filters</button></div>`}
       ${mobileFilterSheet(p)}</section>
       <aside class="jb-right"><div class="jb-promo jb-safe">${I('shield', 44)}<h3>Never pay anyone to get a job</h3><p class="muted">Fraudsters may ask you to invest money either to earn more OR to get you a job. Never make such payments.</p><a href="#/page/help">Learn more</a></div></aside></div>`;
   }, { layout: 'jobs', title: 'Jobs' });
@@ -669,13 +671,18 @@
       ${PL.mobileBackbar(ctx)}
       <main id="main" tabindex="-1" class="jb-main-mobile ${ctx.path === '/job-results' ? 'has-job-filterbar' : ''}">${html}</main><footer class="jb-foot2"><span>&copy; ${new Date().getFullYear()} PharmaLinkIn prototype &middot; Demo content only</span><button class="link-btn" data-action="reset-demo">Reset demo data</button></footer>${PL.mobileNav(role, ctx.path)}`;
   };
-  PL.act('jb-social', () => {
-    const links = db().settings.adminSocialLinks || PL.config.socialLinks || [];
-    const body = links.length
-      ? `<p class="muted">Follow PharmaLinkIn on its official social channels.</p><nav class="jb-social-links" aria-label="Official social media">${links.map(link => `<a href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${I('globe', 18)}<span>${E(link.label)}</span>${I('arrow', 14)}</a>`).join('')}</nav>`
-      : '<p class="muted">Official social-media profiles are not available yet.</p>';
-    ui().modal({ title: 'Follow PharmaLinkIn', body });
-  });
+  const socialPlatformIcon = link => /whatsapp/i.test(link.platform || '') || /whatsapp/i.test(link.url || '') ? 'phone'
+    : /telegram/i.test(link.platform || '') || /t\.me/i.test(link.url || '') ? 'send'
+    : /linkedin/i.test(link.platform || '') ? 'users'
+    : /facebook/i.test(link.platform || '') ? 'globe'
+    : 'globe';
+  const socialPage = () => {
+    const links = db().settings.adminSocialLinks || [];
+    const cards = links.map(link => `<a class="jb-social-card" href="${E(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${E(link.name || link.label || 'Social link')} - ${E(link.platform || 'Social')}"><span class="jb-social-card-icon">${I(socialPlatformIcon(link), 22)}</span><span class="jb-social-card-copy"><b>${E(link.name || link.label || 'Social link')}</b><small>${E(link.platform || 'Social')}</small></span>${I('external', 15)}</a>`).join('');
+    return `<div class="jb-social-page"><header class="jb-social-page-head"><div><span class="xs muted">PharmaLinkIn communities</span><h1>Social Media</h1></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}</div>`;
+  };
+  PL.router.add('/social', socialPage, { layout: 'jobs', roles: ['candidate', 'recruiter', 'advertiser', 'admin'], title: 'Social Media' });
+  PL.act('jb-social', () => PL.go('/social'));
   PL.act('jb-post-denied', () => ui().toast('Posting is not available for this account.', 'info'));
   PL.act('jb-sopen', () => {
     const current = location.hash.slice(1) || '/job-results?browse=1';

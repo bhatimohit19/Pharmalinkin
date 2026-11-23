@@ -514,3 +514,79 @@
   .cp-completion-card,.cp-inline-analytics,.cp-section{border-radius:12px}
   .cp-completion-actions .btn{min-height:40px}
 }
+
+/* LinkedIn-inspired candidate profile refinement */
+.candidate-profile-screen{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.candidate-profile-screen,.candidate-profile-screen *{-webkit-tap-highlight-color:transparent}
+.cp-private-hero{overflow:hidden}
+.cp-private-hero .cp-cover img{object-position:center}
+.cp-private-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cp-private-actions .btn{width:100%;min-height:44px;justify-content:center}
+
+@media(max-width:720px){
+  .candidate-profile-screen{max-width:none;padding:8px 0 calc(96px + env(safe-area-inset-bottom));gap:8px}
+  .candidate-profile-screen>.cp-card{margin:0 10px;border-radius:12px}
+  .cp-private-hero .cp-cover{height:112px}
+  .cp-private-hero .cp-hero-body{padding:0 14px 14px}
+  .cp-private-hero .cp-identity{flex-direction:column;align-items:flex-start;gap:0}
+  .cp-private-hero .cp-avatar{width:112px!important;height:112px!important;margin:-56px 0 0;border:4px solid #fff;border-radius:50%}
+  .cp-private-hero .cp-avatar>.avatar{width:104px!important;height:104px!important}
+  .cp-private-hero .cp-photo-btn{width:32px;height:32px;right:-1px;bottom:2px}
+  .cp-identity-copy{width:100%;padding-top:8px}
+  .cp-identity-copy h1{min-height:28px;align-items:center;font-size:1.28rem;line-height:1.25}
+  .cp-private-hero .cp-title{font-size:.94rem;line-height:1.35}
+  .cp-private-hero .cp-headline{margin-top:3px;font-size:.84rem;line-height:1.4}
+  .cp-private-hero .cp-location{margin-top:7px;font-size:.76rem;line-height:1.35}
+  .cp-name-edit{width:28px;height:28px}
+  .cp-private-actions{margin-top:12px}
+  .cp-private-actions .btn{font-size:.78rem}
+  .cp-completion-card{padding:14px}
+  .cp-completion-heading{font-size:.82rem}
+  .cp-completion-card>p{font-size:.76rem}
+  .cp-completion-actions{align-items:center}
+  .cp-completion-actions .btn{min-height:42px;padding:8px 12px}
+  .cp-completion-actions>a:not(.btn){min-height:42px}
+  .candidate-profile-screen>.cp-card.cp-section{padding:15px 14px}
+  .cp-section-head h2{font-size:1.02rem}
+  .cp-section-head>a,.cp-section-head>button,.cp-section-actions>a,.cp-section-actions>button{min-width:36px;min-height:36px}
+  .cp-entry{gap:10px}
+  .cp-entry-icon{width:38px;height:38px}
+  .cp-entry-copy b{font-size:.88rem}
+  .cp-entry-copy>span,.cp-entry-copy>small{font-size:.76rem}
+  .cp-about{font-size:.84rem;line-height:1.55}
+  .cp-skills>span{min-height:30px;display:inline-flex;align-items:center;font-size:.76rem}
+  .cp-promo{min-height:104px}
+  .cp-promo-art{width:56px;height:56px}
+  .cp-inline-analytics .cp-analytics-grid{gap:6px}
+  .cp-inline-analytics .cp-analytics-grid>div{min-height:62px;justify-content:center}
+  .cp-resume-file{min-height:54px}
+  .cp-private-hero .cp-cover-btn{min-height:34px}
+}
+
+@media(max-width:360px){
+  .cp-private-hero .cp-avatar{width:104px!important;height:104px!important;margin-top:-52px}
+  .cp-private-hero .cp-avatar>.avatar{width:96px!important;height:96px!important}
+  .cp-identity-copy h1{font-size:1.16rem}
+  .cp-private-actions{grid-template-columns:minmax(0,1fr)}
+  .cp-completion-actions{align-items:stretch;flex-direction:column}
+  .cp-completion-actions>a:not(.btn){justify-content:center}
+}
+
+@media(min-width:721px){
+  .candidate-profile-screen{max-width:920px}
+  .cp-private-hero .cp-cover{height:170px}
+  .cp-private-hero .cp-hero-body{padding:0 24px 22px}
+  .cp-private-hero .cp-identity{flex-direction:column;align-items:flex-start;gap:0}
+  .cp-private-hero .cp-avatar{width:132px!important;height:132px!important;margin:-66px 0 0;border:5px solid #fff}
+  .cp-private-hero .cp-avatar>.avatar{width:122px!important;height:122px!important}
+  .cp-private-hero .cp-photo-btn{width:34px;height:34px}
+  .cp-identity-copy{width:100%;padding-top:10px}
+  .cp-identity-copy h1{font-size:1.45rem}
+  .cp-private-hero .cp-title{font-size:1.02rem}
+  .cp-private-hero .cp-headline{font-size:.92rem}
+  .cp-private-hero .cp-location{font-size:.82rem}
+  .cp-private-actions{max-width:520px;margin-top:14px}
+  .candidate-profile-screen>.cp-card.cp-section{padding:18px 20px}
+  .cp-entry-copy b{font-size:.92rem}
+  .cp-about{font-size:.88rem}
+}

@@ -65,8 +65,9 @@
     const j = PL.q.job(d.id); if (!j) return ui().toast('This job is no longer available.', 'err');
     const field = (name, label, type, value, options = {}) => ui().field({ name, label, type, value, ...options });
     const body = `<p class="muted small">These publishing and paid-job settings are restricted to administrators.</p><form data-form="admin-job-config" novalidate><input type="hidden" name="jobId" value="${E(j.id)}">
-      <label class="check mb"><input type="checkbox" name="scheduleEnabled" ${j.publishAt ? 'checked' : ''}> Schedule job publication</label>
-      ${field('publishAt', 'Publish date and time', 'datetime-local', j.publishAt || '', { full: true })}
+      <label class="check mb"><input type="checkbox" name="scheduleEnabled" ${j.scheduleMinDate ? 'checked' : ''}> Schedule job publication</label>
+      ${field('scheduleMinDate', 'Min Date', 'date', j.scheduleMinDate || '', { full: true })}
+      ${field('scheduleMaxDate', 'Max Date', 'date', j.scheduleMaxDate || '', { full: true, min: j.scheduleMinDate || '' })}
       ${field('scheduleAttachment', 'Schedule attachment URL (optional)', 'url', j.scheduleAttachment || '', { full: true, placeholder: 'https://…' })}
       <label class="check mb"><input type="checkbox" name="featured" ${j.featured ? 'checked' : ''}> Featured job</label>
       <label class="check mb"><input type="checkbox" name="paidJob" ${j.paidJob ? 'checked' : ''}> Paid job configuration</label>
@@ -79,12 +80,13 @@
     const u = me(); if (!u || u.role !== 'admin') return ui().toast('Only administrators can configure job publishing options.', 'err');
     if (!ui().validate(f)) return;
     const x = ui().formData(f), j = PL.q.job(x.jobId); if (!j) return ui().toast('This job is no longer available.', 'err');
-    if (x.scheduleEnabled && (!x.publishAt || new Date(x.publishAt).getTime() <= Date.now())) return ui().setError(f, 'publishAt', 'Choose a future publication date and time.');
+    if (x.scheduleEnabled && (!x.scheduleMinDate || !x.scheduleMaxDate)) return ui().setError(f, 'scheduleMaxDate', 'Choose both Min Date and Max Date.');
+    if (x.scheduleEnabled && new Date(x.scheduleMaxDate) < new Date(x.scheduleMinDate)) return ui().setError(f, 'scheduleMaxDate', 'Max Date cannot be earlier than Min Date.');
     if (x.paidJob && +x.paidAmount <= 0) return ui().setError(f, 'paidAmount', 'Enter a positive amount for a paid job.');
     j.featured = !!x.featured; j.paidJob = !!x.paidJob; j.paidAmount = j.paidJob ? +x.paidAmount : 0;
     j.scheduleAttachment = x.scheduleAttachment || '';
-    if (x.scheduleEnabled) { j.publishAt = x.publishAt; j.status = 'Scheduled'; }
-    else { delete j.publishAt; if (j.status === 'Scheduled') j.status = db().settings.moderation ? 'Pending Approval' : 'Published'; }
+    if (x.scheduleEnabled) { j.scheduleMinDate = x.scheduleMinDate; j.scheduleMaxDate = x.scheduleMaxDate; j.publishAt = x.scheduleMinDate; j.status = j.scheduleMinDate <= new Date().toISOString().slice(0, 10) ? 'Published' : 'Scheduled'; }
+    else { delete j.publishAt; delete j.scheduleMinDate; delete j.scheduleMaxDate; if (j.status === 'Scheduled') j.status = db().settings.moderation ? 'Pending Approval' : 'Published'; }
     j.externalApplyUrl = x.externalApplyUrl || '';
     PL.audit('Updated job publishing configuration', 'job', j.id);
     PL.store.save(); PL.ui.closeModals(); ui().toast('Job configuration saved'); PL.rerender();
@@ -166,21 +168,22 @@
     return `${ui().pageHead('Platform settings')}<div class="grid g2"><form class="card pad-lg" data-form="admin-settings" novalidate>${ui().field({ name: 'siteName', label: 'Site name', value: s.siteName, required: true })}${ui().field({ name: 'supportEmail', label: 'Support email', type: 'email', value: s.supportEmail, required: true })}
       <label class="check mb"><input type="checkbox" name="moderation" ${s.moderation ? 'checked' : ''}> Require admin approval for new jobs</label><label class="check mb"><input type="checkbox" name="allowRegistration" ${s.allowRegistration ? 'checked' : ''}> Allow new registrations</label><label class="check mb"><input type="checkbox" name="maintenance" ${s.maintenance ? 'checked' : ''}> Maintenance mode (banner only in demo)</label><button class="btn">Save settings</button></form>
       <div class="card pad-lg"><h3>Job categories</h3><div class="chips mb">${cats.map(c => `<span class="chip">${E(c)} <button class="link-btn" data-action="cat-del" data-c="${E(c)}" aria-label="Remove ${E(c)}">×</button></span>`).join('')}</div><form class="row nowrap" data-form="cat-add" novalidate><label class="sr" for="newcat">New category</label><input id="newcat" name="c" class="grow" placeholder="New category" required><button class="btn btn-secondary">Add</button></form></div>
-      <div class="card pad-lg"><h3>Social links</h3>${links.length ? `<div class="stack-sm mb">${links.map(link => `<a class="row nowrap" href="${E(link.url)}" target="_blank" rel="noopener noreferrer"><span class="grow">${E(link.label || link.url)}</span><span class="xs muted">${E(link.url)}</span></a>`).join('')}</div>` : '<p class="muted small">No social links posted.</p>'}<form data-form="admin-social-link" novalidate>${ui().field({ name: 'url', label: 'Social media URL', type: 'url', placeholder: 'https://...', required: true, full: true })}<button class="btn" type="submit">Post</button></form></div></div>`;
+      <div class="card pad-lg"><h3>Social links</h3>${links.length ? `<div class="stack-sm mb">${links.map(link => `<a class="row nowrap" href="${E(link.url)}" target="_blank" rel="noopener noreferrer"><span class="grow">${E(link.name || link.label || link.url)}</span><span class="xs muted">${E(link.platform || 'Social')}</span></a>`).join('')}</div>` : '<p class="muted small">No social links posted.</p>'}<form data-form="admin-social-link" novalidate>${ui().field({ name: 'name', label: 'Company / group name', placeholder: 'Company or group name', required: true, full: true })}${ui().field({ name: 'url', label: 'Social media URL', type: 'url', placeholder: 'https://...', required: true, full: true })}<button class="btn" type="submit">Post</button></form></div></div>`;
   }, 'Settings');
   PL.form('admin-settings', f => { if (!ui().validate(f)) return; const x = ui().formData(f), s = db().settings; Object.assign(s, { siteName: x.siteName, supportEmail: x.supportEmail, moderation: !!f.moderation.checked, allowRegistration: !!f.allowRegistration.checked, maintenance: !!f.maintenance.checked }); PL.audit('Updated settings', 'settings', 'site'); PL.store.save(); ui().toast('Settings saved'); PL.rerender(); });
   PL.form('cat-add', f => { const c = f.c.value.trim(); if (!c) return; if (db().categories.some(x => x.toLowerCase() === c.toLowerCase())) return ui().toast('Category exists', 'err'); db().categories.push(c); PL.audit('Added category', 'category', c); PL.store.save(); PL.rerender(); });
   PL.form('admin-social-link', f => {
     if (me().role !== 'admin') return ui().toast('Only administrators can post social links.', 'err');
     if (!ui().validate(f)) return;
-    const url = ui().formData(f).url;
-    let label = 'Social link';
+    const x = ui().formData(f), url = x.url;
+    let platform = 'Social';
     try {
       const host = new URL(url).hostname.toLowerCase();
-      label = host.includes('facebook') ? 'Facebook' : host.includes('instagram') ? 'Instagram' : host.includes('linkedin') ? 'LinkedIn' : host.includes('twitter') || host.includes('x.com') ? 'Twitter / X' : 'Social link';
+      platform = host.includes('whatsapp') ? 'WhatsApp' : host.includes('t.me') || host.includes('telegram') ? 'Telegram' : host.includes('linkedin') ? 'LinkedIn' : host.includes('facebook') ? 'Facebook' : host.includes('instagram') ? 'Instagram' : host.includes('twitter') || host.includes('x.com') ? 'Twitter / X' : 'Social';
     } catch (_) {}
     db().settings.adminSocialLinks = db().settings.adminSocialLinks || [];
-    db().settings.adminSocialLinks.push({ id: PL.store.id('sl'), url, label, createdAt: new Date().toISOString() });
+    if (db().settings.adminSocialLinks.some(link => link.url === url)) return ui().toast('This social link has already been posted.', 'err');
+    db().settings.adminSocialLinks.push({ id: PL.store.id('sl'), name: x.name, url, platform, createdAt: new Date().toISOString() });
     PL.audit('Posted social link', 'social-link', url);
     PL.store.save(); ui().toast('Social link posted'); PL.rerender();
   });

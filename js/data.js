@@ -41,12 +41,27 @@
 
   const demoProfile = p => ({ onboarded: true, level: 'Experienced', dob: '1996-05-14', resumeFile: p.resume ? p.resume.name : '', education: [{ id: 'e0', level: '10th', degree: 'High School (10th)', board: 'CBSE', institute: 'Demo Public School, Mumbai', year: '2012', grade: '85', current: false }, { id: 'e00', level: '12th', degree: 'Intermediate (12th) (Science)', board: 'CBSE', institute: 'Demo Junior College, Mumbai', year: '2014', grade: '80', current: false }, { id: 'e1', level: 'Graduation', degree: 'B.Pharm', board: '', institute: 'Demo College of Pharmacy, Mumbai', year: '2022', grade: '8.2', current: false }] });
   function seed() {
-    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false, adminSocialLinks: [
-      { id: 'sl1', url: 'https://www.facebook.com/pharmalinkin/', label: 'Facebook', createdAt: ago(30) },
-      { id: 'sl2', url: 'https://www.instagram.com/pharmalinkin/', label: 'Instagram', createdAt: ago(30) },
-      { id: 'sl3', url: 'https://www.linkedin.com/company/pharmalinkinjobs', label: 'LinkedIn', createdAt: ago(30) },
-      { id: 'sl4', url: 'https://twitter.com/pharmalinkin', label: 'Twitter', createdAt: ago(30) }
-    ] }, categories: PL.CATEGORIES.slice(), templates: [
+    const initialSocialLinks = [
+      { id: 'sl1', name: 'All India Medical Representative (Fresher & Experienced)', url: 'https://whatsapp.com/channel/0029Vaazx9z30LKY3u4sEj2f', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl2', name: 'All India Pharma Sales Manager (ASM/RSM/ZSM/NSM/GM/VP)', url: 'https://whatsapp.com/channel/0029Vb71ggS3GJP7Y5ZgGI47', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl3', name: 'Delhi/NCR – Pharma Jobs', url: 'https://whatsapp.com/channel/0029Vb7YYhc2UPBFEgO4Z443', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl4', name: 'Uttar Pradesh (UP) Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbCCzxk4dTnNDhmsSL1z', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl5', name: 'Punjab – Haryana – J&K – Himachal Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbCSLVs0AgWGmmbEzG1c', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl6', name: 'Tamil Nadu & Pondicherry Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbCzPoyLo4hlAF8CEL3d', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl7', name: 'Karnataka Pharma Jobs', url: 'https://whatsapp.com/channel/0029Vb8fJb37tkj3gTQ37n42', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl8', name: 'Maharashtra & Goa Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbD6gtuGufJ2XxkQF92n', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl9', name: 'Gujarat Pharma Jobs', url: 'https://whatsapp.com/channel/0029Vb83IPUJJhzaf9XHEo3x', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl10', name: 'Madhya Pradesh & Chhattisgarh Pharma Jobs', url: 'https://whatsapp.com/channel/0029Vb88aivGOj9nHHvm8h40', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl11', name: 'Bihar & Jharkhand Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbDRu4MADTOD7CrQ4t1g', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl12', name: 'West Bengal, Assam & North East Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbDEkpK6LwHieddIdM1W', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl13', name: 'Telangana & Andhra Pradesh Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbDapex6RGJJxjQVv13q', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl14', name: 'Kerala Pharma Jobs', url: 'https://whatsapp.com/channel/0029VbDI6TvL2AU5pK5yrq1D', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl15', name: 'Product Manager & Brand Manager Pharma Jobs', url: 'https://whatsapp.com/channel/0029Vb8Xj2jF6smqpp749X0a', platform: 'WhatsApp', createdAt: ago(30) },
+      { id: 'sl16', name: 'Telegram – PharmaLinkin', url: 'https://t.me/pharmalinkin/', platform: 'Telegram', createdAt: ago(30) },
+      { id: 'sl17', name: 'LinkedIn – PharmaLinkin', url: 'https://www.linkedin.com/company/pharmalinkinjobs', platform: 'LinkedIn', createdAt: ago(30) },
+      { id: 'sl18', name: 'Facebook – PharmaLinkin', url: 'https://www.facebook.com/pharmalinkin/', platform: 'Facebook', createdAt: ago(30) }
+    ];
+    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false, adminSocialLinks: initialSocialLinks }, categories: PL.CATEGORIES.slice(), templates: [
       { id: 'tpl1', name: 'Application received', subject: 'We received your application', body: 'Hi {{name}}, your application for {{job}} has been received.' },
       { id: 'tpl2', name: 'Interview invitation', subject: 'Interview scheduled for {{job}}', body: 'Hi {{name}}, your interview is scheduled on {{date}} at {{time}}.' },
       { id: 'tpl3', name: 'Job approved', subject: 'Your job is live', body: 'Your job "{{job}}" has been approved and is now visible to candidates.' },
@@ -292,6 +307,12 @@
       if (!this.s.settings) this.s.settings = {};
       if (!Array.isArray(this.s.settings.adminSocialLinks)) {
         this.s.settings.adminSocialLinks = seed().settings.adminSocialLinks;
+      } else {
+        const initial = seed().settings.adminSocialLinks;
+        const existing = this.s.settings.adminSocialLinks;
+        const initialUrls = new Set(initial.map(link => link.url));
+        const custom = existing.filter(link => !initialUrls.has(link.url));
+        this.s.settings.adminSocialLinks = initial.concat(custom);
       }
       this.s.users.forEach(x => {
         if (x.id === 'u1') {

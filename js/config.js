@@ -10,7 +10,7 @@
       { label: 'LinkedIn', url: 'https://www.linkedin.com/company/pharmalinkinjobs' },
       { label: 'Twitter', url: 'https://twitter.com/pharmalinkin' }
     ],
-    allowed: [/^\/$/, /^\/login$/, /^\/register$/, /^\/verify-account$/, /^\/registration-complete$/, /^\/forgot-password$/, /^\/forgot-username$/, /^\/job-search$/, /^\/job-post$/, /^\/dashboard$/, /^\/my-applications$/, /^\/saved-jobs$/, /^\/job-results$/, /^\/job\/[\w-]+$/, /^\/app\/(feed|messages|notifications|resume)$/, /^\/app\/profile(?:\/[\w-]+)*$/, /^\/reset-password$/, /^\/onboarding(\/done)?$/, /^\/employer\/(onboarding|dashboard|company|jobs|jobs\/new|jobs\/[\w-]+\/edit|applicants|applicants\/[\w-]+|interviews|messages|notifications)$/, /^\/companies\/[\w-]+$/, /^\/page\/[\w-]+$/]
+    allowed: [/^\/$/, /^\/login$/, /^\/register$/, /^\/verify-account$/, /^\/registration-complete$/, /^\/forgot-password$/, /^\/forgot-username$/, /^\/job-search$/, /^\/job-post$/, /^\/social$/, /^\/dashboard$/, /^\/my-applications$/, /^\/saved-jobs$/, /^\/job-results$/, /^\/job\/[\w-]+$/, /^\/app\/(feed|messages|notifications|resume)$/, /^\/app\/profile(?:\/[\w-]+)*$/, /^\/reset-password$/, /^\/onboarding(\/done)?$/, /^\/employer\/(onboarding|dashboard|company|jobs|jobs\/new|jobs\/[\w-]+\/edit|applicants|applicants\/[\w-]+|interviews|messages|notifications)$/, /^\/companies\/[\w-]+$/, /^\/page\/[\w-]+$/]
   };
   PL.onboardingOnly = () => PL.config.phase === 'onboarding';
   PL.employerOn = () => !PL.onboardingOnly() || PL.config.employerEnabled;
