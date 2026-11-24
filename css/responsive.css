@@ -27,7 +27,9 @@
 }
 @media (max-width:720px){
   body{font-size:14.5px}
+  .dash-top{z-index:55}
   .mobile-backbar{position:sticky;top:0;z-index:49;display:flex;align-items:center;min-height:46px;padding:4px 12px;background:#fff;border-bottom:1px solid var(--border)}
+  .dash-top+.mobile-backbar{top:var(--nav-h)}
   .profile-topbar+.mobile-backbar{top:52px}
   .site-header+.mobile-backbar,.topnav+.mobile-backbar,.jb-hd+.mobile-backbar{top:60px}
   h1,.hero h1{font-size:1.75rem}
