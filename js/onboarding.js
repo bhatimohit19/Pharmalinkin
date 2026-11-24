@@ -447,16 +447,32 @@
   if (!PL.onboardingOnly()) return;
 
   /* ---------- landing page ---------- */
-  const person = (c1, c2, f) => `<svg viewBox="0 0 120 120" width="96" height="96" aria-hidden="true"><circle cx="60" cy="60" r="58" fill="${c2}"/><path d="M22 112c3-24 18-34 38-34s35 10 38 34z" fill="${c1}"/><circle cx="60" cy="46" r="19" fill="#f2c9a5"/><path d="M40 44c0-14 9-22 21-22 11 0 20 7 20 20-6-4-10-9-12-14-7 9-17 14-29 16z" fill="${f}"/></svg>`;
+  PL.form('landing-home-search', f => {
+    const q = f.q.value.trim(), loc = f.loc.value.trim(), params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (loc) params.set('loc', loc);
+    PL.go('/job-results?browse=1' + (params.toString() ? '&' + params.toString() : ''));
+  });
   PL.router.add('/', () => {
     const u = me();
-    const cont = u ? `<div class="land-cont"><a class="btn" href="#${PL.auth.homeFor(u)}">Continue where I left off</a></div>` : '';
-    const role = (r, ic, t, d, btn, cls) => `<div class="land-card"><div class="land-art">${ic}</div><h3>${t}</h3><p class="muted small">${d}</p><a class="btn ${cls} btn-block" ${r === 'recruiter' && !PL.employerOn() ? 'disabled aria-disabled="true" title="Coming soon" style="opacity:.55;cursor:not-allowed;pointer-events:none"' : `href="#/register?role=${r}"`}>${btn}</a></div>`;
     const feat = (ic, t) => `<div class="land-feat"><span>${I(ic, 22)}</span><b>${t}</b></div>`;
     const brands = [['Cipla', '#0b5ea8', 'cipla.com'], ['NOVARTIS', '#e0611f', 'novartis.com'], ['gsk', '#f36f21', 'gsk.com'], ['Pfizer', '#0b3a8f', 'pfizer.com'], ['SUN PHARMA', '#e8892b', 'sunpharma.com'], ['Dr. Reddy\u2019s', '#7a2a8c', 'drreddys.com'], ['Lupin', '#0a7d5a', 'lupin.com']];
-    const jobs = PL.q.publicJobs().sort((a, b) => (b.featured - a.featured) || (new Date(b.createdAt) - new Date(a.createdAt))).slice(0, 6);
+    const allJobs = PL.q.publicJobs();
+    const featuredJobs = allJobs.filter(j => j.featured).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+    const jobs = (featuredJobs.length ? featuredJobs : allJobs.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))).slice(0, 3);
+    const featuredIds = new Set(jobs.map(j => j.id));
+    const recentJobs = allJobs.filter(j => !featuredIds.has(j.id)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 4);
+    const categories = PL.CATEGORIES.slice(0, 8);
+    const articles = (PL.store.s.news || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
     const socialLinks = ((PL.store.s.settings && PL.store.s.settings.adminSocialLinks) || []).slice();
-    const jobCard = j => { const c = PL.q.company(j.companyId) || {}; return `<article class="card job-card pad"><div class="row nowrap start">${ui().logo(c, 44)}<div class="grow"><h3 style="margin:0">${E(j.title)}</h3><div class="small muted">${E(c.name)}</div></div></div><ul class="meta"><li>${I('pin', 14)}${E(j.location)}</li><li>${I('clock', 14)}${E(j.type)} · ${E(j.workMode)}</li></ul><div class="row between"><div class="chips"><span class="tag">${E(j.department)}</span></div><a class="btn btn-sm btn-secondary" href="#/register?role=candidate">Sign up to apply</a></div></article>`; };
+    const socialPreview = [socialLinks.find(link => /whatsapp/i.test((link.platform || '') + ' ' + (link.url || ''))), ...socialLinks.filter(link => !/whatsapp/i.test((link.platform || '') + ' ' + (link.url || '')))].filter(Boolean).slice(0, 4);
+    const jobCard = (j, isFeatured) => {
+      const company = PL.q.company(j.companyId) || { name: 'PharmaLinkIn employer' };
+      return `<article class="home-job-card"><a class="home-job-main" href="#/job/${E(j.id)}">${ui().logo(company, 46)}<span><b>${E(j.title)}</b><small>${E(company.name)}</small></span>${isFeatured ? '<i class="home-featured-tag">Featured</i>' : ''}</a><div class="home-job-meta"><span>${I('pin', 14)} ${E(j.location || j.city)}</span><span>${I('briefcase', 14)} ${E(j.type || 'Full-time')}</span></div><a class="home-job-open" href="#/job/${E(j.id)}">View job ${I('right', 14)}</a></article>`;
+    };
+    const socialIcon = link => PL.socialPlatformIcon && PL.socialPlatform
+      ? PL.socialPlatformIcon(PL.socialPlatform(link))
+      : I('globe', 18);
     const after = () => {
       const t = document.getElementById('bs-track'); if (!t) return;
       let hover = false; t.onmouseenter = () => hover = true; t.onmouseleave = () => hover = false; t.ontouchstart = () => hover = true; t.ontouchend = () => hover = false;
@@ -464,11 +480,28 @@
       const tick = () => { if (!document.body.contains(t)) return; if (!hover && !matchMedia('(prefers-reduced-motion: reduce)').matches) { if (Math.abs(t.scrollLeft - pos) > 2) pos = t.scrollLeft; pos += 0.4; if (pos >= t.scrollWidth / 2) pos = 0; t.scrollLeft = pos; } else pos = t.scrollLeft; requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
     };
-    const html = `<section class="land"><div class="land-in"><span class="land-pill">Trusted by top companies</span>
-      <div class="brand-strip"><button type="button" class="bs-arrow" data-action="brand-scroll" data-dir="-1" aria-label="Previous">${I('left', 16)}</button><div class="bs-track" id="bs-track">${brands.concat(brands).map(b => `<span class="bs-logo" style="color:${b[1]}"><img src="https://www.google.com/s2/favicons?domain=${b[2]}&sz=64" alt="" loading="lazy" onerror="this.remove()"><span class="bs-txt">${b[0]}</span></span>`).join('')}</div><button type="button" class="bs-arrow" data-action="brand-scroll" data-dir="1" aria-label="Next">${I('right', 16)}</button></div>
-      <h1>Your Next Career Move<br><span>Starts Here</span></h1><p class="muted land-sub">Join India's trusted platform for pharma jobs, skilled professionals, and growth opportunities.</p>${cont}
-      <div class="land-cards">${role('candidate', person('#2b6cd9', '#e6f0ff', '#1d2b4f'), "I'm a Candidate", 'Find jobs, build your profile, and grow your career.', 'Register as Candidate', '')}${role('recruiter', person('#1c3f7a', '#eef2f8', '#2a2a2a'), "I'm an Employer", 'Post jobs, find top talent, and grow your team.', 'Register as Employer', 'btn-secondary')}</div>
-      <div class="land-feats">${feat('shield', 'Verified Jobs')}${feat('building', 'Trusted Companies')}${feat('zap', 'AI Powered Matching')}${feat('chart', 'Career Growth')}</div>${socialLinks.length ? `<div class="land-social"><h2>Follow PharmaLinkIn</h2><div class="land-social-links">${socialLinks.map(link => `<a href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${I('globe', 17)}<span>${E(link.name || link.label || 'Social link')}</span></a>`).join('')}</div></div>` : ''}</div></section>`;
+        const html = `<div class="home-page ${u && u.role === 'candidate' ? 'home-page-candidate' : ''}">
+          <section class="home-hero"><div class="home-hero-inner">
+            <div class="home-brand-line"><span class="home-brand-mark">${I('pill', 22)}</span><span>Pharma jobs. <b>One trusted place.</b></span><span class="home-trust-tag">${I('shield', 14)} Trusted by pharma professionals</span></div>
+            <div class="home-hero-copy"><span class="home-eyebrow">YOUR PHARMA CAREER STARTS HERE</span><h1>Find the right role.<br><span>Build your future.</span></h1><p>Explore opportunities across pharma sales, research, quality, manufacturing and more.</p>
+              <div class="home-hero-actions"><a class="btn" href="#/job-results?browse=1">Explore pharma jobs ${I('right', 16)}</a>${u ? `<a class="btn btn-secondary" href="#${PL.auth.homeFor(u)}">Continue to my account</a>` : `<a class="home-text-link" href="#/register?role=candidate">Create your profile</a>`}</div>
+            </div>
+            <form data-form="landing-home-search" class="home-search" role="search"><label><span>Job title or keyword</span><input name="q" type="search" placeholder="e.g. Medical Representative"></label><label><span>Location</span><input name="loc" type="search" placeholder="City or state"></label><button class="btn" type="submit">${I('search', 17)} Search jobs</button></form>
+            <div class="home-trusted"><span>Trusted companies</span><div class="brand-strip"><button type="button" class="bs-arrow" data-action="brand-scroll" data-dir="-1" aria-label="Previous companies">${I('left', 16)}</button><div class="bs-track" id="bs-track">${brands.concat(brands).map(b => `<span class="bs-logo" style="color:${b[1]}"><img src="https://www.google.com/s2/favicons?domain=${b[2]}&sz=64" alt="" loading="lazy" onerror="this.remove()"><span class="bs-txt">${b[0]}</span></span>`).join('')}</div><button type="button" class="bs-arrow" data-action="brand-scroll" data-dir="1" aria-label="Next companies">${I('right', 16)}</button></div></div>
+            <div class="home-benefits">${feat('shield', 'Verified Jobs')}${feat('building', 'Trusted Companies')}${feat('zap', 'AI Powered Matching')}${feat('chart', 'Career Growth')}</div>
+          </div></section>
+          <div class="home-content">
+            <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Handpicked opportunities</span><h2>Featured pharma jobs</h2></div><a href="#/job-results?browse=1">View all jobs ${I('right', 15)}</a></div><div class="home-jobs-grid">${jobs.map(j => jobCard(j, !!j.featured)).join('')}</div></section>
+            <section class="home-section home-categories-section"><div class="home-section-head"><div><span class="home-section-kicker">Explore your next move</span><h2>Browse by category</h2></div><a href="#/job-results?browse=1">All categories ${I('right', 15)}</a></div><div class="home-category-grid">${categories.map(c => `<a class="home-category" href="#/job-results?browse=1&dept=${encodeURIComponent(c)}"><span>${I('briefcase', 19)}</span><b>${E(c)}</b><small>${allJobs.filter(j => j.department === c).length} open roles</small></a>`).join('')}</div></section>
+            <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Recently added</span><h2>Latest pharma jobs</h2></div><a href="#/job-results?browse=1&sort=date">See all jobs ${I('right', 15)}</a></div><div class="home-jobs-grid">${recentJobs.map(j => jobCard(j, false)).join('')}</div></section>
+            ${PL.ads ? `<div class="home-ad-slot">${PL.ads.homeBand()}</div>` : ''}
+            <section class="home-resume-promo"><span class="home-resume-icon">${I('file', 26)}</span><div><span class="home-section-kicker">Make your next move</span><h2>Get noticed by the right pharma employers</h2><p>Create your professional profile and keep your experience, education and skills together.</p></div><a class="btn" href="${u && u.role === 'candidate' ? '#/app/profile' : '#/register?role=candidate'}">${u && u.role === 'candidate' ? 'View my profile' : 'Create my profile'} ${I('right', 15)}</a></section>
+            <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Career insights</span><h2>Latest pharma articles</h2></div><a href="#/news">More articles ${I('right', 15)}</a></div><div class="home-article-grid">${articles.map(article => `<a class="home-article" href="#/news/${E(article.id)}"><img src="${ui().art(article.id, article.category, 600, 280)}" alt="" loading="lazy"><span class="home-article-copy"><small>${E(article.category)} · ${PL.ui.fmt.date(article.createdAt)}</small><b>${E(article.title)}</b><span>${E(article.summary)}</span></span></a>`).join('')}</div></section>
+            <section class="home-audience"><article><span>${I('user', 22)}</span><div><b>Looking for your next opportunity?</b><small>Build your profile and explore roles made for pharma professionals.</small></div><a href="#/register?role=candidate">Join as a candidate ${I('right', 14)}</a></article><article><span>${I('building', 22)}</span><div><b>Hiring pharma talent?</b><small>Connect with professionals and grow your team.</small></div><a href="#/register?role=recruiter">Join as an employer ${I('right', 14)}</a></article></section>
+            ${socialLinks.length ? `<section class="home-section home-social"><div class="home-section-head"><div><span class="home-section-kicker">Stay connected</span><h2>Follow PharmaLinkIn</h2></div><a href="#/social">All social links ${I('right', 15)}</a></div><div class="home-social-links">${socialPreview.map(link => `<a href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${socialIcon(link)}<span>${E(link.name || link.label || 'Social link')}</span><small>${E(link.platform || 'Social')}</small></a>`).join('')}</div></section>` : ''}
+          </div>
+          ${u && u.role === 'candidate' && PL.mobileNav ? PL.mobileNav('candidate', '/app/profile') : ''}
+        </div>`;
         return { html, after };
       }, { layout: 'public', title: 'Pharma professionals network' });
   PL.act('brand-scroll', d => { const t = document.getElementById('bs-track'); if (t) t.scrollBy({ left: 140 * Number(d.dir), behavior: 'smooth' }); });

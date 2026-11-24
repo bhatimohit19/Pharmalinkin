@@ -418,9 +418,9 @@
 .cp-public-hero .cp-identity{align-items:flex-start}
 .cp-public-hero .cp-avatar{margin-top:-30px}
 .cp-preview-label{display:flex;align-items:center;gap:6px;margin:0 10px;color:#536B86;font-size:.72rem;font-weight:650}
-.cp-profile-tabs{position:sticky;top:52px;z-index:10;display:flex;gap:20px;overflow-x:auto;margin:0 10px;padding:0 12px;border-bottom:1px solid #DCE5EF;background:#fff;scrollbar-width:none}
-.cp-profile-tabs a{flex:none;padding:12px 0;border-bottom:2px solid transparent;color:#536B86;font-size:.75rem;font-weight:650;text-decoration:none}
-.cp-profile-tabs a:first-child{border-color:#0879E8;color:#0879E8}
+.cp-profile-tabs{position:relative;display:flex;gap:20px;overflow-x:auto;margin:0 10px;padding:0 12px;border-bottom:1px solid #DCE5EF;background:#fff;scrollbar-width:none}
+.cp-profile-tabs a{flex:none;min-height:44px;display:flex;align-items:center;padding:10px 0;border-bottom:2px solid transparent;color:#536B86;font-size:.75rem;font-weight:650;text-decoration:none;white-space:nowrap}
+.cp-profile-tabs a.active{border-color:#0879E8;color:#0879E8}
 .cp-analytics-subtitle{margin:4px 0 0;color:#718197;font-size:.72rem}
 .cp-analytics-note{margin:0;color:#687A90;font-size:.72rem;line-height:1.45}
 .cp-exp-row{display:flex;align-items:flex-start;gap:10px;padding:13px 0;border-top:1px solid #EAF0F6}
@@ -430,7 +430,7 @@
 .cp-exp-form h1{grid-column:1/-1;margin:0 0 8px;color:#173B70;font-size:1.2rem}
 .cp-date-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .cp-exp-form .check{min-height:42px}
-.candidate-profile-screen [id^="profile-"]{scroll-margin-top:64px}
+.candidate-profile-screen [id^="profile-"]{scroll-margin-top:104px}
 @media(max-width:720px){
   .candidate-profile-screen{padding:8px 0 calc(26px + env(safe-area-inset-bottom));gap:8px}
   .candidate-profile-screen>.cp-card{margin:0 10px;border:1px solid #E2EAF3;border-radius:12px;box-shadow:0 2px 8px rgba(15,49,86,.05)}
@@ -455,7 +455,7 @@
   .cp-public-hero .cp-hero-body{padding:0 13px 13px}
   .cp-public-hero .cp-avatar{width:68px!important;height:68px!important;margin-top:-28px}
   .cp-public-hero .cp-avatar>.avatar{width:68px!important;height:68px!important}
-  .cp-profile-tabs{margin:0 10px;gap:18px}
+  .cp-profile-tabs{position:sticky;top:52px;z-index:10;margin:0 10px;gap:18px;overscroll-behavior-x:contain}
   .cp-exp-row{gap:8px}
   .cp-exp-row .cp-entry-actions{flex-direction:column}
   .cp-form-page{padding:10px 10px calc(28px + env(safe-area-inset-bottom))}

@@ -671,14 +671,31 @@
       ${PL.mobileBackbar(ctx)}
       <main id="main" tabindex="-1" class="jb-main-mobile ${ctx.path === '/job-results' ? 'has-job-filterbar' : ''}">${html}</main><footer class="jb-foot2"><span>&copy; ${new Date().getFullYear()} PharmaLinkIn prototype &middot; Demo content only</span><button class="link-btn" data-action="reset-demo">Reset demo data</button></footer>${PL.mobileNav(role, ctx.path)}`;
   };
-  const socialPlatformIcon = link => /whatsapp/i.test(link.platform || '') || /whatsapp/i.test(link.url || '') ? 'phone'
-    : /telegram/i.test(link.platform || '') || /t\.me/i.test(link.url || '') ? 'send'
-    : /linkedin/i.test(link.platform || '') ? 'users'
-    : /facebook/i.test(link.platform || '') ? 'globe'
-    : 'globe';
+  const socialPlatform = link => {
+    const identity = `${link.platform || ''} ${link.url || ''}`;
+    if (/whatsapp/i.test(identity)) return 'whatsapp';
+    if (/telegram|t\.me/i.test(identity)) return 'telegram';
+    if (/linkedin/i.test(identity)) return 'linkedin';
+    if (/facebook/i.test(identity)) return 'facebook';
+    return 'other';
+  };
+  const socialPlatformIcon = platform => {
+    const icons = {
+      whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.3 9.3 0 0 0-8 14l-1.2 4.3 4.4-1.2A9.5 9.5 0 1 0 12 2.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.1 7.7c-.3-.7-.6-.7-.9-.7h-.7c-.3 0-.7.1-1 .5-.4.4-1.3 1.3-1.3 3.1s1.3 3.6 1.5 3.8c.2.3 2.5 4 6.1 5.4 3 .1 3.6-.4 4.2-1 .5-.6.7-1.2.8-1.7.1-.3 0-.5-.3-.7s-1.8-.9-2.1-1c-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.7l.5-.6c.2-.2.3-.4.4-.6.1-.2 0-.5 0-.6z" fill="currentColor" transform="translate(2 0) scale(.82)"/></svg>',
+      telegram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m21.7 4.2-3.3 15.4c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.8 13.1.9 11.6c-1.1-.3-1.1-1.1.2-1.6l19-7.3c.9-.3 1.7.2 1.6 1.5Z"/></svg>',
+      linkedin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5.2 8.5H2.1V22h3.1V8.5ZM3.7 2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM22 14.3c0-4.1-2.2-6-5.1-6-2.4 0-3.5 1.3-4.1 2.2V8.5H9.7V22h3.1v-6.7c0-1.8.3-3.6 2.6-3.6s2.3 2.1 2.3 3.7V22H22v-7.7Z"/></svg>',
+      facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 22v-9h3l.5-3.5h-3.5V7.3c0-1 .3-1.7 1.8-1.7h1.9V2.5c-.9-.1-1.9-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9v2.3H6.5V13h3.2v9h3.8Z"/></svg>'
+    };
+    return icons[platform] || I('globe', 22);
+  };
+  PL.socialPlatform = socialPlatform;
+  PL.socialPlatformIcon = socialPlatformIcon;
   const socialPage = () => {
     const links = db().settings.adminSocialLinks || [];
-    const cards = links.map(link => `<a class="jb-social-card" href="${E(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${E(link.name || link.label || 'Social link')} - ${E(link.platform || 'Social')}"><span class="jb-social-card-icon">${I(socialPlatformIcon(link), 22)}</span><span class="jb-social-card-copy"><b>${E(link.name || link.label || 'Social link')}</b><small>${E(link.platform || 'Social')}</small></span>${I('external', 15)}</a>`).join('');
+    const cards = links.map(link => {
+      const platform = socialPlatform(link);
+      return `<a class="jb-social-card" href="${E(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${E(link.name || link.label || 'Social link')} - ${E(link.platform || 'Social')}"><span class="jb-social-card-icon jb-social-icon-${platform}">${socialPlatformIcon(platform)}</span><span class="jb-social-card-copy"><b>${E(link.name || link.label || 'Social link')}</b><small>${E(link.platform || 'Social')}</small></span>${I('external', 15)}</a>`;
+    }).join('');
     return `<div class="jb-social-page"><header class="jb-social-page-head"><div><span class="xs muted">PharmaLinkIn communities</span><h1>Social Media</h1></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}</div>`;
   };
   PL.router.add('/social', socialPage, { layout: 'jobs', roles: ['candidate', 'recruiter', 'advertiser', 'admin'], title: 'Social Media' });
