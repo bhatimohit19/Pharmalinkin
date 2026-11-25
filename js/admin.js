@@ -187,6 +187,30 @@
     PL.audit('Posted social link', 'social-link', url);
     PL.store.save(); ui().toast('Social link posted'); PL.rerender();
   });
+  reg('/admin/social', () => {
+    const faqs = db().settings.adminSocialFaqs || [];
+    return `${ui().pageHead('Social media FAQs', '<a class="btn btn-secondary" href="#/social">View public page</a>', 'Manage the answers displayed to all Social Media page visitors.')}<div class="card pad-lg jb-admin-faq-card"><div class="jb-admin-faq-head"><div><h3>Published FAQs</h3><p class="small muted">Questions and answers appear in the public Social Media page accordion.</p></div><span class="jb-social-faq-count">${faqs.length} ${faqs.length === 1 ? 'FAQ' : 'FAQs'}</span></div>${faqs.length ? `<div class="jb-admin-faq-list">${faqs.map(faq => `<article class="jb-admin-faq-item"><div><b>${E(faq.question)}</b><p>${E(faq.answer)}</p></div><button type="button" class="link-btn" data-action="admin-social-faq-delete" data-id="${E(faq.id)}" aria-label="Remove FAQ: ${E(faq.question)}">Remove</button></article>`).join('')}</div>` : '<p class="jb-admin-faq-empty">No FAQs have been added yet.</p>'}<form class="jb-admin-faq-form" data-form="admin-social-faq" novalidate>${ui().field({ name: 'question', label: 'Question', required: true, full: true, attrs: 'maxlength="180"', placeholder: 'Write a clear, short question' })}${ui().field({ name: 'answer', label: 'Answer', type: 'textarea', rows: 3, required: true, full: true, attrs: 'maxlength="1200"', placeholder: 'Add a helpful answer' })}<button class="btn" type="submit">Add FAQ</button></form></div>`;
+  }, 'Social media FAQs');
+  PL.form('admin-social-faq', f => {
+    if (me().role !== 'admin') return ui().toast('Only administrators can add social FAQs.', 'err');
+    if (!ui().validate(f)) return;
+    const x = ui().formData(f), question = String(x.question || '').trim(), answer = String(x.answer || '').trim();
+    const faqs = db().settings.adminSocialFaqs = db().settings.adminSocialFaqs || [];
+    if (faqs.some(faq => String(faq && faq.question || '').trim().toLowerCase() === question.toLowerCase())) return ui().toast('A FAQ with this question already exists.', 'err');
+    const faq = { id: PL.store.id('sf'), question, answer, createdAt: new Date().toISOString() };
+    faqs.push(faq);
+    PL.audit('Added social FAQ', 'social-faq', faq.id);
+    PL.store.save(); ui().toast('FAQ added to the Social Media page'); PL.rerender();
+  });
+  PL.act('admin-social-faq-delete', async d => {
+    if (me().role !== 'admin') return ui().toast('Only administrators can remove social FAQs.', 'err');
+    const faqs = db().settings.adminSocialFaqs || [], faq = faqs.find(item => item.id === d.id);
+    if (!faq) return;
+    if (!(await ui().confirm({ title: 'Remove this FAQ?', message: 'It will no longer appear on the Social Media page.', confirmText: 'Remove', danger: true }))) return;
+    db().settings.adminSocialFaqs = faqs.filter(item => item.id !== d.id);
+    PL.audit('Removed social FAQ', 'social-faq', faq.id);
+    PL.store.save(); ui().toast('FAQ removed'); PL.rerender();
+  });
   PL.act('cat-del', d => { db().categories = db().categories.filter(c => c !== d.c); PL.audit('Removed category', 'category', d.c); PL.store.save(); PL.rerender(); });
 
   /* audit logs */

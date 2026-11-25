@@ -64,7 +64,12 @@
       { id: 'sl17', name: 'LinkedIn – PharmaLinkin', url: 'https://www.linkedin.com/company/pharmalinkinjobs', platform: 'LinkedIn', createdAt: ago(30) },
       { id: 'sl18', name: 'Facebook – PharmaLinkin', url: 'https://www.facebook.com/pharmalinkin/', platform: 'Facebook', createdAt: ago(30) }
     ];
-    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false, adminSocialLinks: initialSocialLinks }, categories: PL.CATEGORIES.slice(), templates: [
+    const initialSocialFaqs = [
+      { id: 'sf1', question: 'Where do the links on this page take me?', answer: 'Each card opens the listed social or community channel in a new tab. Review the destination before joining or sharing information.' },
+      { id: 'sf2', question: 'How can I find pharma job updates?', answer: 'Explore the available social and community channels above. The PharmaLinkIn admin team manages the links shown on this page.' },
+      { id: 'sf3', question: 'How do I apply for a role shared on social media?', answer: 'Open the relevant job listing on PharmaLinkIn and follow the application instructions shown on that listing.' }
+    ];
+    const s = { version: VERSION, demoJobExpansionVersion: 1, counters: {}, settings: { siteName: 'PharmaLinkIn', supportEmail: 'support@pharmalinkin.example', moderation: true, allowRegistration: true, maintenance: false, adminSocialLinks: initialSocialLinks, adminSocialFaqs: initialSocialFaqs }, categories: PL.CATEGORIES.slice(), templates: [
       { id: 'tpl1', name: 'Application received', subject: 'We received your application', body: 'Hi {{name}}, your application for {{job}} has been received.' },
       { id: 'tpl2', name: 'Interview invitation', subject: 'Interview scheduled for {{job}}', body: 'Hi {{name}}, your interview is scheduled on {{date}} at {{time}}.' },
       { id: 'tpl3', name: 'Job approved', subject: 'Your job is live', body: 'Your job "{{job}}" has been approved and is now visible to candidates.' },
@@ -316,6 +321,9 @@
         const initialUrls = new Set(initial.map(link => link.url));
         const custom = existing.filter(link => !initialUrls.has(link.url));
         this.s.settings.adminSocialLinks = initial.concat(custom);
+      }
+      if (!Array.isArray(this.s.settings.adminSocialFaqs)) {
+        this.s.settings.adminSocialFaqs = seed().settings.adminSocialFaqs;
       }
       this.s.users.forEach(x => {
         if (x.id === 'u1') {

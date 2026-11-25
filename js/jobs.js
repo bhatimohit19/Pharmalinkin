@@ -717,15 +717,19 @@
   };
   PL.socialPlatform = socialPlatform;
   PL.socialPlatformIcon = socialPlatformIcon;
-  const socialPage = () => {
+  const socialPage = (ctx, u) => {
     const links = db().settings.adminSocialLinks || [];
+    const faqs = (db().settings.adminSocialFaqs || []).filter(faq => faq && String(faq.question || '').trim() && String(faq.answer || '').trim());
     const cards = links.map(link => {
       const platform = socialPlatform(link);
       return `<a class="jb-social-card" href="${E(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${E(link.name || link.label || 'Social link')} - ${E(link.platform || 'Social')}"><span class="jb-social-card-icon jb-social-icon-${platform}">${socialPlatformIcon(platform)}</span><span class="jb-social-card-copy"><b>${E(link.name || link.label || 'Social link')}</b><small>${E(link.platform || 'Social')}</small></span>${I('external', 15)}</a>`;
     }).join('');
-    return `<div class="jb-social-page"><header class="jb-social-page-head"><span class="jb-social-page-icon">${I('globe', 21)}</span><div><span class="jb-social-page-kicker">PHARMALINKIN COMMUNITY</span><h1>Social Media</h1><p>Follow our channels for pharma news, career updates, and community highlights.</p></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}</div>`;
+    const faqItems = faqs.map(faq => `<details class="jb-social-faq-item"><summary>${E(faq.question)}</summary><div class="jb-social-faq-answer">${E(faq.answer)}</div></details>`).join('');
+    const manageFaqs = u && u.role === 'admin' ? '<a class="btn btn-secondary btn-sm" href="#/admin/social">Manage FAQs</a>' : '';
+    const faqSection = `<section class="jb-social-faq-section" aria-labelledby="jb-social-faq-title"><div class="jb-social-faq-head"><div><span class="jb-social-page-kicker">QUICK ANSWERS</span><h2 id="jb-social-faq-title">Frequently Asked Questions</h2><p>Helpful details about our channels and job updates.</p></div><div class="jb-social-faq-actions"><span class="jb-social-faq-count">${faqs.length} ${faqs.length === 1 ? 'answer' : 'answers'}</span>${manageFaqs}</div></div>${faqs.length ? `<div class="jb-social-faq-list">${faqItems}</div>` : '<p class="jb-social-faq-empty">FAQs will appear here when they are added by the PharmaLinkIn team.</p>'}</section>`;
+    return `<div class="jb-social-page"><header class="jb-social-page-head"><span class="jb-social-page-icon">${I('globe', 21)}</span><div><span class="jb-social-page-kicker">PHARMALINKIN COMMUNITY</span><h1>Social Media</h1><p>Follow our channels for pharma news, career updates, and community highlights.</p></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}${faqSection}</div>`;
   };
-  PL.router.add('/social', socialPage, { layout: 'jobs', roles: ['candidate', 'recruiter', 'advertiser', 'admin'], title: 'Social Media' });
+  PL.router.add('/social', socialPage, { layout: 'jobs', title: 'Social Media' });
   PL.act('jb-social', () => PL.go('/social'));
   PL.act('jb-post-denied', () => ui().toast('Posting is not available for this account.', 'info'));
   PL.act('jb-sopen', () => {
