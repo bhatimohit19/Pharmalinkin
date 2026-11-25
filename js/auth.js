@@ -39,18 +39,18 @@
     { role: 'Candidate', email: 'u1@demo.pharmalinkin.example', name: 'Mohit Bhati', icon: 'user', desc: 'Jobs, feed, applications' },
     { role: 'Recruiter / Employer', email: 'r1@demo.pharmalinkin.example', name: 'Priya Nair', icon: 'briefcase', desc: 'Medicura Pharma (Growth plan)' },
     { role: 'Advertiser', email: 'a1@demo.pharmalinkin.example', name: 'Pooja Shah', icon: 'megaphone', desc: 'Praxis Medical Education' },
-    { role: 'Super Admin', email: 'admin@demo.pharmalinkin.example', name: 'Platform Admin', icon: 'shield', desc: 'Moderation & reports' }
+    { role: 'Super Admin', email: 'admin@demo.pharmalinkin.example', name: 'Platform Admin', icon: 'shield', desc: 'Job-writing controls preview' }
   ];
-  const demoPanel = () => `<div class="card pad"><h3>${ui().icon('zap', 18)} Demo access panel</h3><p class="muted small">Try the onboarding with a ready-made account, or register your own. Password: <code>${PL.DEMO_PW}</code>. This is a prototype – no real authentication is performed.</p><div class="stack-sm">${demoAccounts.filter(a => !PL.onboardingOnly() || a.role === 'Candidate' || (a.role.startsWith('Recruiter') && PL.employerOn())).map(a => `<div class="row between nowrap card pad" style="padding:10px 12px;box-shadow:none"><div class="row nowrap" style="gap:10px">${ui().icon(a.icon, 20)}<div><div class="bold small">${a.role}</div><div class="xs muted">${a.name} · ${a.desc}</div></div></div><div class="row nowrap"><button class="btn btn-secondary btn-sm" data-action="demo-fill" data-email="${a.email}">Fill</button><button class="btn btn-sm" data-action="demo-login" data-email="${a.email}">Sign in</button></div></div>`).join('')}</div></div>`;
+  const demoPanel = () => `<div class="card pad"><h3>${ui().icon('zap', 18)} Demo access panel</h3><p class="muted small">Try the onboarding with a ready-made account, or register your own. Password: <code>${PL.DEMO_PW}</code>. This is a prototype – no real authentication is performed.</p><div class="stack-sm">${demoAccounts.filter(a => !PL.onboardingOnly() || a.role === 'Candidate' || (a.role.startsWith('Recruiter') && PL.employerOn()) || a.role === 'Super Admin').map(a => `<div class="row between nowrap card pad" style="padding:10px 12px;box-shadow:none"><div class="row nowrap" style="gap:10px">${ui().icon(a.icon, 20)}<div><div class="bold small">${a.role}</div><div class="xs muted">${a.name} · ${a.desc}</div></div></div><div class="row nowrap"><button class="btn btn-secondary btn-sm" data-action="demo-fill" data-email="${a.email}">Fill</button><button class="btn btn-sm" data-action="demo-login" data-email="${a.email}">Sign in</button></div></div>`).join('')}</div></div>`;
 
-  function doLogin(u, remember) {
+  function doLogin(u, remember, destination) {
     PL.auth.setSession(u.id, remember);
     ui().toast('Welcome back, ' + u.name.split(' ')[0] + '!');
     const next = PL.auth.takeNext();
-    PL.go(next || PL.auth.homeFor(u));
+    PL.go(destination || next || PL.auth.homeFor(u));
   }
   PL.act('demo-fill', d => { const f = document.querySelector('form[data-form="login"]'); if (!f) return; f.email.value = d.email; f.password.value = PL.DEMO_PW; f.password.focus(); });
-  PL.act('demo-login', d => { const u = db().users.find(x => x.email === d.email); if (u) doLogin(u, false); });
+  PL.act('demo-login', d => { const u = db().users.find(x => x.email === d.email); if (u) doLogin(u, false, u.role === 'admin' && PL.onboardingOnly() ? '/job-post' : ''); });
   PL.act('logout', () => { PL.auth.logout(); ui().toast('You have been signed out.', 'info'); PL.go('/'); });
 
   /* ---- login ---- */
