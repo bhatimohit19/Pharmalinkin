@@ -10,13 +10,16 @@
   PL.DEMO_PW = 'Demo@123';
   PL.hashPw = s => { let h = 5381; for (const c of String(s)) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return 'h' + h; };
 
-  PL.CATEGORIES = ['Medical Representative', 'Pharmaceutical Sales', 'Area Sales Manager', 'Regional Sales Manager', 'Zonal Sales Manager', 'National Sales Manager', 'Product Management', 'Medical Affairs', 'Regulatory Affairs', 'Quality Assurance', 'Quality Control', 'Pharmacovigilance', 'Clinical Research', 'Manufacturing', 'Production', 'R&D', 'Hospital Pharmacy', 'Retail Pharmacy', 'Distribution', 'Supply Chain', 'Medical Devices'];
+  PL.CATEGORIES = ['Medical Representative', 'Pharmaceutical Sales', 'Area Sales Manager', 'Regional Business Manager', 'Regional Sales Manager', 'Zonal Sales Manager', 'National Sales Manager', 'Product Management', 'Medical Affairs', 'Regulatory Affairs', 'Quality Assurance', 'Quality Control', 'Pharmacovigilance', 'Clinical Research', 'Manufacturing', 'Production', 'R&D', 'Hospital Pharmacy', 'Retail Pharmacy', 'Distribution', 'Supply Chain', 'Medical Devices'];
   PL.QUALS = ['D.Pharm', 'B.Pharm', 'M.Pharm', 'Pharm.D', 'B.Sc Life Sciences', 'M.Sc Life Sciences', 'B.Tech Biotechnology', 'MBBS', 'MBA', 'Any Graduate'];
   PL.JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
   PL.WORK_MODES = ['On-site', 'Hybrid', 'Remote', 'Field / Travelling'];
+  PL.DIVISIONS = ['Cardio Division', 'Oncology', 'Cardiology', 'Diabetes', 'Generics', 'Branded Generics', 'Biologics', 'OTC / Consumer Health', 'API', 'Hospital', 'Institutional', 'Medical Devices', 'Clinical Research', 'Regulatory', 'Quality', 'Other'];
+  PL.SPECIALITIES = ['Orthopaedics', 'Cardiology', 'Oncology', 'Diabetes', 'Respiratory', 'Gastroenterology', 'Neurology', 'Dermatology', 'Nephrology', 'Women\u2019s Health', 'Paediatrics', 'General Medicine', 'Vaccines', 'Diagnostics', 'Other'];
   PL.STATUSES = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Offer', 'Hired', 'Rejected', 'Withdrawn'];
   PL.SIZES = ['1-50', '51-200', '201-500', '501-1000', '1001-5000', '5000+'];
   PL.INDUSTRIES = ['Pharmaceutical Manufacturing', 'Biotechnology', 'Clinical Research (CRO)', 'Diagnostics', 'Medical Devices', 'Healthcare Services', 'Pharma Distribution', 'Medical Education'];
+  PL.JOB_INDUSTRY = 'Pharmaceutical and Life Sciences';
   PL.PLACEMENTS = ['Feed', 'Sidebar', 'Jobs', 'Companies', 'Newsletter', 'Webinar', 'Course', 'Search'];
 
   const CITY = { M: ['Mumbai', 'Maharashtra'], P: ['Pune', 'Maharashtra'], H: ['Hyderabad', 'Telangana'], B: ['Bengaluru', 'Karnataka'], G: ['Gurugram', 'Haryana'], D: ['New Delhi', 'Delhi'], A: ['Ahmedabad', 'Gujarat'], V: ['Vadodara', 'Gujarat'], C: ['Chennai', 'Tamil Nadu'], K: ['Kolkata', 'West Bengal'], Ko: ['Kochi', 'Kerala'], I: ['Indore', 'Madhya Pradesh'], N: ['Nagpur', 'Maharashtra'] };
@@ -120,7 +123,7 @@
     const recOf = {}; s.companies.forEach(c => (recOf[c.id] = c.recruiterIds[0]));
     const J = (id, title, dept, cid, city, qual, exp, sal, type, mode, status, d, close, views, featured, extra = {}) => {
       const t = deptText(dept);
-      return { id, title, department: dept, companyId: cid, recruiterId: recOf[cid], city: CITY[city][0], state: CITY[city][1], country: 'India', locations: [CITY[city][0]], location: CITY[city].join(', '), qualification: qual, expMin: exp[0], expMax: exp[1], salMin: sal[0], salMax: sal[1], salaryPeriod: 'LPA', type, workMode: mode, vacancies: 1 + (views % 4), status, createdAt: ago(d), closingDate: ahead(close), views, featured: !!featured,
+      return { id, title, department: dept, companyId: cid, recruiterId: recOf[cid], city: CITY[city][0], state: CITY[city][1], country: 'India', locations: [CITY[city][0]], location: CITY[city][0], pinCode: '', currency: 'INR', industryType: PL.JOB_INDUSTRY, divisionName: '', specialization: dept, qualification: qual, expMin: exp[0], expMax: exp[1], salMin: sal[0], salMax: sal[1], salaryPeriod: 'LPA', type, workMode: mode, vacancies: 1 + (views % 4), status, createdAt: ago(d), closingDate: ahead(close), views, featured: !!featured,
         description: `${title} at ${s.companies.find(c => c.id === cid).name}. This is demo job content created to illustrate the PharmaLinkIn candidate and employer experience.`, responsibilities: t.r, skills: t.s, preferred: 'Prior industry exposure and relevant certifications are an advantage.', benefits: BENEFITS.slice(0, 3 + (views % 3)), incentives: /Sales|Representative|Distribution/.test(dept) ? 'Quarterly performance incentive' : '', travel: /Field|Sales|Representative/.test(dept + mode) ? 'Up to 60% travel' : 'Minimal', specialization: dept, certifications: '', questions: ['How many years of experience do you have in ' + dept + '?', 'What is your notice period?'], ...extra };
     };
     s.jobs = [
@@ -338,6 +341,42 @@
     user: id => db().users.find(u => u.id === id),
     company: id => db().companies.find(c => c.id === id),
     job: id => db().jobs.find(j => j.id === id),
+    jobBySlug: slug => db().jobs.find(j => j.customJobSlug && j.customJobSlug === slug),
+    jobContacts: (j, includeHidden = false) => {
+      if (!j) return [];
+      let contacts = Array.isArray(j.contacts) && j.contacts.length ? j.contacts : [{
+        name: j.contactName || '',
+        phone: j.contactPhone || '',
+        phoneType: 'Call',
+        email: j.contactEmail || '',
+        showPhone: !!(j.contactVisibility && j.contactVisibility.phone),
+        showEmail: !!(j.contactVisibility && j.contactVisibility.email)
+      }];
+      if ((!Array.isArray(j.contacts) || !j.contacts.length) && Array.isArray(j.alternateContacts)) {
+        contacts = contacts.concat(j.alternateContacts);
+      } else if ((!Array.isArray(j.contacts) || !j.contacts.length) && (j.alternateContactName || j.alternateContactPhone || j.alternateContactEmail)) {
+        contacts = contacts.concat([{
+          name: j.alternateContactName || '',
+          phone: j.alternateContactPhone || '',
+          phoneType: 'Call',
+          email: j.alternateContactEmail || '',
+          showPhone: false,
+          showEmail: false
+        }]);
+      }
+      contacts = contacts.map(c => ({
+        name: String(c.name || ''),
+        phone: String(c.phone || ''),
+        phoneType: ['Call', 'WhatsApp', 'Call & WhatsApp'].includes(c.phoneType) ? c.phoneType : 'Call',
+        alternatePhone: String(c.alternatePhone || ''),
+        alternatePhoneType: ['Call', 'WhatsApp', 'Call & WhatsApp'].includes(c.alternatePhoneType) ? c.alternatePhoneType : 'Call',
+        email: String(c.email || ''),
+        showPhone: !!c.showPhone,
+        showAlternatePhone: !!c.showAlternatePhone,
+        showEmail: !!c.showEmail
+      }));
+      return includeHidden ? contacts : contacts.filter(c => (c.showPhone && c.phone) || (c.showAlternatePhone && c.alternatePhone) || (c.showEmail && c.email));
+    },
     app: id => db().applications.find(a => a.id === id),
     post: id => db().posts.find(p => p.id === id),
     news: id => db().news.find(n => n.id === id),

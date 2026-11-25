@@ -15,7 +15,7 @@
   };
   const jobUrl = (j, base) => `#${base}/jobs/${j.id}`;
   const salary = j => (j.salMin ? F().lpa(j.salMin, j.salMax) : 'Not disclosed');
-  const exp = j => `${j.expMin}–${j.expMax} yrs`;
+  const exp = j => j.expMin === '' || j.expMax === '' || j.expMin == null || j.expMax == null ? 'Experience not specified' : `${j.expMin}–${j.expMax} yrs`;
 
   const cmp = (PL.cmp = {});
   cmp.jobCard = (j, o = {}) => {
@@ -102,7 +102,7 @@
         if (v.qual && j.qualification !== v.qual) return false;
         if (v.type && j.type !== v.type) return false;
         if (v.mode && j.workMode !== v.mode) return false;
-        if (v.exp) { const [lo, hi] = v.exp === '10+' ? [10, 99] : v.exp.split('-').map(Number); if (!(j.expMin <= hi && j.expMax >= lo)) return false; }
+        if (v.exp && j.expMin !== '' && j.expMax !== '' && j.expMin != null && j.expMax != null) { const [lo, hi] = v.exp === '10+' ? [10, 99] : v.exp.split('-').map(Number); if (!(j.expMin <= hi && j.expMax >= lo)) return false; }
         return true;
       });
       list.sort(v.sort === 'sal' ? (a, b) => b.salMax - a.salMax : (a, b) => (b.featured - a.featured) || (new Date(b.createdAt) - new Date(a.createdAt)));
@@ -123,7 +123,7 @@
   const li = a => `<ul style="padding-left:20px;margin:6px 0">${a.map(x => `<li>${E(x)}</li>`).join('')}</ul>`;
   function jobDetail(base) {
     return ctx => {
-      const j = PL.q.job(ctx.params.id), u = PL.auth.user();
+      const j = PL.q.job(ctx.params.id) || PL.q.jobBySlug(ctx.params.id), u = PL.auth.user();
       const owner = u && u.role === 'recruiter' && j && u.companyId === j.companyId, admin = u && u.role === 'admin';
       if (!j || (j.status !== 'Published' && !owner && !admin)) return `<div class="container section">${ui().empty('briefcase', 'Job not available', 'This job may have been closed, expired or removed.', '<a class="btn" href="#' + base + '/jobs">Browse jobs</a>')}</div>`;
       const c = PL.q.company(j.companyId), applied = u && PL.q.appFor(u.id, j.id), saved = u && PL.q.isSaved(u.id, j.id);
@@ -132,12 +132,20 @@
       j.views = j.views || 0; if (ctx.fresh && !owner) { j.views++; PL.store.save(); }
       const externalApplyUrl = /^https?:\/\//i.test(j.externalApplyUrl || '') ? j.externalApplyUrl : '';
       const apply = !open ? `<button class="btn" disabled>Applications closed</button>` : applied && !externalApplyUrl ? `<a class="btn btn-secondary" href="#/app/applications/${applied.id}">${I('checkc', 16)} Applied – ${E(applied.status)}</a>` : externalApplyUrl ? `<a class="btn" href="${E(externalApplyUrl)}" target="_blank" rel="noopener noreferrer">Apply now ${I('external', 14)}</a>` : `<button class="btn" data-action="apply-job" data-id="${j.id}">Apply now</button>`;
+      const visibleContacts = PL.q.jobContacts(j).map(contact => {
+        const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}">${I('phone', 15)} Call</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
+        const phone = contact.showPhone && contact.phone ? phoneMarkup(contact.phone, contact.phoneType, 'Mobile') : '';
+        const alternatePhone = contact.showAlternatePhone && contact.alternatePhone ? phoneMarkup(contact.alternatePhone, contact.alternatePhoneType, 'Alternate mobile') : '';
+        const email = contact.showEmail && contact.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${E(contact.email)}">${I('mail', 15)} Email ${E(contact.email)}</a>` : '';
+        return `<div class="jb-job-contact"><b>${E(contact.name || 'Hiring contact')}</b>${phone}${alternatePhone}${email}</div>`;
+      }).join('');
+      const attachments = (j.attachments || []).map(file => `<a class="jb-job-attachment" href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${I('file', 15)} ${E(file.name)}</a>`).join('');
       const html = `<div class="${base ? '' : 'container section'}"><a href="#${base}/jobs" class="small">${I('left', 14)} Back to jobs</a>
         <div class="grid mt-s" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start">
-        <div class="stack"><div class="card pad-lg"><div class="row nowrap start">${ui().logo(c, 60)}<div class="grow"><h1 style="font-size:1.5rem;margin:0">${E(j.title)}</h1><a href="#/companies/${c.id}">${E(c.name)}</a> ${PL.q.verified(c) ? ui().badge('Verified', '') : '<span class="badge b-amber">Verification pending</span>'}${j.status !== 'Published' ? ' ' + ui().badge(j.status) : ''}</div></div>
+        <div class="stack"><div class="card pad-lg"><div class="row nowrap start">${ui().logo(c, 60)}<div class="grow"><h1 style="font-size:1.5rem;margin:0">${E(j.title)}</h1>${j.freeApply ? '<span class="badge b-green">Free to apply</span>' : ''}<a href="#/companies/${c.id}">${E(c.name)}</a> ${PL.q.verified(c) ? ui().badge('Verified', '') : '<span class="badge b-amber">Verification pending</span>'}${j.status !== 'Published' ? ' ' + ui().badge(j.status) : ''}</div></div>
           <ul class="meta mt"><li>${I('pin', 14)}${E(j.location)}</li><li>${I('briefcase', 14)}${exp(j)}</li><li>${I('rupee', 14)}${salary(j)}</li><li>${I('clock', 14)}${E(j.type)} · ${E(j.workMode)}</li><li>${I('calendar', 14)}Apply by ${F().date(j.closingDate)}</li></ul>
           <div class="row mt">${apply}${u && u.role === 'candidate' ? `<button class="btn btn-secondary" data-action="save-job" data-id="${j.id}" aria-pressed="${!!saved}">${I('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button>` : ''}<button class="btn btn-ghost" data-action="share" data-path="${base}/jobs/${j.id}">${I('share', 16)} Share</button><button class="btn btn-ghost" data-action="report" data-type="job" data-id="${j.id}">${I('flag', 16)} Report</button></div></div>
-          <div class="card pad-lg"><h3>About the role</h3><p style="white-space:pre-line">${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}<h3>Required skills</h3><div class="chips">${j.skills.map(s => `<span class="tag">${E(s)}</span>`).join('')}</div><h3 class="mt">Preferred</h3><p>${E(j.preferred)}</p><h3>Benefits</h3>${li(j.benefits)}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${j.contactVisibility && ((j.contactVisibility.email && j.contactEmail) || (j.contactVisibility.phone && j.contactPhone)) ? `<h3>Contact</h3><p>${E(j.contactName || '')}${j.contactName ? ' · ' : ''}${j.contactVisibility.email && j.contactEmail ? `<a href="mailto:${E(j.contactEmail)}">${E(j.contactEmail)}</a>` : ''}${j.contactVisibility.email && j.contactEmail && j.contactVisibility.phone && j.contactPhone ? ' · ' : ''}${j.contactVisibility.phone && j.contactPhone ? `<a href="tel:${E(j.contactPhone)}">${E(j.contactPhone)}</a>` : ''}</p>` : ''}</div></div>
+          <div class="card pad-lg"><h3>About the role</h3><p style="white-space:pre-line">${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}<h3>Required skills</h3><div class="chips">${(j.skills || []).map(s => `<span class="tag">${E(s)}</span>`).join('')}</div><h3 class="mt">Preferred</h3><p>${E(j.preferred || '')}</p><h3>Benefits</h3>${li(j.benefits || [])}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${visibleContacts ? `<section class="jb-job-contacts"><h3>Contact details</h3>${visibleContacts}</section>` : ''}${attachments ? `<h3>Attachments</h3><div class="jb-attachment-list">${attachments}</div>` : ''}</div></div>
         <aside class="stack"><div class="card pad"><h3>Job overview</h3><dl class="kv"><dt>Function</dt><dd>${E(j.department)}</dd>${j.specialization ? `<dt>Segment</dt><dd>${E(j.specialization)}</dd>` : ''}<dt>Qualification</dt><dd>${E(j.qualification)}</dd><dt>Vacancies</dt><dd>${j.vacancies}</dd><dt>Travel</dt><dd>${E(j.travel)}</dd><dt>Posted</dt><dd>${F().date(j.createdAt)}</dd></dl></div>
         <div class="card pad"><h3>About ${E(c.name)}</h3><p class="small muted">${E(c.description)}</p><a class="btn btn-secondary btn-sm" href="#/companies/${c.id}">View company</a></div>
         ${PL.ads ? PL.ads.slot('Sidebar') : ''}</aside></div>

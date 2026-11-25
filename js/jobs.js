@@ -10,6 +10,18 @@
   const days = j => Math.max(0, Math.floor((Date.now() - new Date(j.createdAt)) / 864e5));
   const me = () => PL.auth.user();
   const applied = (u, id) => !!(u && PL.q.appFor(u.id, id));
+  const contactMarkup = j => {
+    const contacts = PL.q.jobContacts(j);
+    if (!contacts.length) return '';
+    return `<section class="jb-job-contacts"><h3>Contact details</h3>${contacts.map(contact => {
+      const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}">${I('phone', 15)} Call</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
+      const phone = contact.showPhone && contact.phone ? phoneMarkup(contact.phone, contact.phoneType, 'Mobile') : '';
+      const alternatePhone = contact.showAlternatePhone && contact.alternatePhone ? phoneMarkup(contact.alternatePhone, contact.alternatePhoneType, 'Alternate mobile') : '';
+      const email = contact.showEmail && contact.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${E(contact.email)}">${I('mail', 15)} Email ${E(contact.email)}</a>` : '';
+      return `<div class="jb-job-contact"><b>${E(contact.name || 'Hiring contact')}</b>${phone}${alternatePhone}${email}</div>`;
+    }).join('')}</section>`;
+  };
+  const attachmentMarkup = j => (j.attachments || []).map(file => `<a class="jb-job-attachment" href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${I('file', 15)} ${E(file.name)}</a>`).join('');
 
   window.addEventListener('hashchange', e => { try { const o = new URL(e.oldURL).hash.slice(1); if (/^\/(dashboard|my-applications|saved-jobs|job-search|job-results)/.test(o)) PL.state.jbFrom = o; } catch (x) { } });
   const parse = q => { const per = [5, 10].includes(+q.per) ? +q.per : 10; const p = { q: q.q || '', loc: q.loc || '', exp: q.exp === undefined ? '' : q.exp, fresh: q.fresh || '', sort: q.sort || 'rel', page: Math.max(1, +q.page || 1), per }; CSV.forEach(k => (p[k] = q[k] ? q[k].split(',').filter(Boolean) : [])); return p; };
@@ -22,7 +34,8 @@
     const c = co(j), qq = lc(p.q).trim(), ll = lc(p.loc).trim();
     if (qq) { const hay = lc([j.title, j.department, c.name, (j.skills || []).join(' '), j.qualification, j.city, j.location, (j.locations || []).join(' ')].join(' ')); if (!qq.split(/[\s,]+/).filter(Boolean).every(w => wordHit(hay, w))) return false; }
     if (ll && !lc([j.location, j.city, j.state, j.country, ...(j.locations || [])].join(' ')).includes(ll)) return false;
-    if (skip !== 'exp' && p.exp !== '' && !(j.expMin <= +p.exp && +p.exp <= j.expMax)) return false;
+    const hasExperienceRange = j.expMin !== '' && j.expMax !== '' && j.expMin != null && j.expMax != null;
+    if (skip !== 'exp' && p.exp !== '' && hasExperienceRange && !(j.expMin <= +p.exp && +p.exp <= j.expMax)) return false;
     if (skip !== 'fresh' && p.fresh && days(j) > +p.fresh) return false;
     if (skip !== 'mode' && p.mode.length && !p.mode.includes(j.workMode)) return false;
     if (skip !== 'dept' && p.dept.length && !p.dept.includes(j.department)) return false;
@@ -101,8 +114,16 @@
   PL.act('jb-go', d => nav({ ...parse({}), ...JSON.parse(d.p) }));
 
   /* ---------- job card ---------- */
-  const salTxt = j => j.salMin ? `${j.salMin}-${j.salMax} LPA` : 'Not disclosed';
-  const expTxt = j => `${j.expMin}-${j.expMax} Yrs`;
+  const salTxt = j => {
+    if (!j.salMin) return 'Not disclosed';
+    const currency = j.currency || 'INR';
+    const max = j.salMax || j.salMin;
+    if (currency === 'INR') return `₹${j.salMin}-${max} LPA`;
+    if (currency === 'USD') return `$${j.salMin}-${max}`;
+    const symbol = { EUR: '€', GBP: '£' }[currency] || currency + ' ';
+    return `${symbol}${j.salMin}-${max}`;
+  };
+  const expTxt = j => j.expMin === '' || j.expMax === '' || j.expMin == null || j.expMax == null ? 'Experience not specified' : `${j.expMin}-${j.expMax} Yrs`;
   const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const rating = j => { const h = hash(j.companyId); return { r: (3 + (h % 20) / 10).toFixed(1), n: 2 + (h % 38) }; };
   const ago = j => { const d = days(j); return d === 0 ? 'Today' : d < 7 ? d + 'd ago' : Math.floor(d / 7) + (d >= 28 ? '+ weeks ago' : 'w ago'); };
@@ -208,8 +229,9 @@
   };
   const confirmApply = (u, j) => {
     const p = u.profile || {}, exp = userExp(u), pct = PL.q.completion(u).pct, c = co(j), warn = [];
-    if (exp < j.expMin) warn.push(`This role asks for ${j.expMin}-${j.expMax} years of experience and your profile shows ${exp === 0 ? 'none (Fresher)' : exp + ' yr' + (exp === 1 ? '' : 's')}. You can still apply.`);
-    else if (exp > j.expMax) warn.push(`This role is for ${j.expMin}-${j.expMax} years and your profile shows ${exp} years. You can still apply.`);
+    const hasExperienceRange = j.expMin !== '' && j.expMax !== '' && j.expMin != null && j.expMax != null;
+    if (hasExperienceRange && exp < j.expMin) warn.push(`This role asks for ${j.expMin}-${j.expMax} years of experience and your profile shows ${exp === 0 ? 'none (Fresher)' : exp + ' yr' + (exp === 1 ? '' : 's')}. You can still apply.`);
+    else if (hasExperienceRange && exp > j.expMax) warn.push(`This role is for ${j.expMin}-${j.expMax} years and your profile shows ${exp} years. You can still apply.`);
     if (pct < 70) warn.push(`Your profile is only ${pct}% complete. <a href="#/onboarding">Complete it</a> to improve your chances.`);
     const resumeName = p.resume && p.resume.name || 'Generated PharmaLinkIn profile resume';
     const body = `<div class="jb-ap"><div class="row nowrap">${ui().logo(c, 44)}<div><b>${E(j.title)}</b><div class="small muted">${E(c.name)} &middot; ${E(j.city)}</div></div></div>
@@ -298,12 +320,12 @@
       <div class="jb-meta"><span>${I('pin', 15)}${E(j.city)}</span><span>${I('briefcase', 15)}${expTxt(j)}</span><span>${I('rupee', 15)}${salTxt(j)}</span></div>
       <div class="jb-app-status">${ui().badge(a.status)}</div>
       <div class="jb-foot"><span class="xs muted">Applied on ${F().date(a.appliedAt)}</span><div class="row nowrap jb-acts">${['Hired', 'Rejected', 'Withdrawn'].includes(a.status) ? '' : `<button type="button" class="jb-save" data-action="jb-withdraw" data-id="${a.id}">${I('x', 18)} Withdraw</button>`}<a class="jb-save jb-view" href="#/job/${j.id}">${I('eye', 18)} View job</a></div></div></article>`; };
-    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>My applications <span class="muted">(${list.length})</span></h1><p class="muted small">Application statuses reflect the latest updates available from the employer.</p>${list.length ? `<div class="jb-list">${list.map(row).join('')}</div>` : `<div class="jb-none">${I('file', 40)}<h3>No applications yet</h3><p class="muted">Jobs you apply to will appear here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
+    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a>${ui().pageHead(`My applications (${list.length})`, '', 'Track application progress and employer updates.')}${list.length ? `<div class="jb-list">${list.map(row).join('')}</div>` : `<div class="jb-none">${I('file', 40)}<h3>No applications yet</h3><p class="muted">Jobs you apply to will appear here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
   }, { layout: 'jobs', title: 'My applications' });
   R.add('/saved-jobs', () => {
     const u = gate('/saved-jobs'); if (!u) return '';
     const list = PL.q.saved(u.id).map(id => PL.q.job(id)).filter(Boolean);
-    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a><h1>Saved jobs <span class="muted">(${list.length})</span></h1>${list.length ? `<div class="jb-list">${list.map(card).join('')}</div>` : `<div class="jb-none">${I('bookmark', 40)}<h3>No saved jobs yet</h3><p class="muted">Tap Save on any job to keep it here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
+    return `<div class="jb-page"><a href="#/dashboard" class="small">${I('left', 14)} Back to dashboard</a>${ui().pageHead(`Saved jobs (${list.length})`, '', 'Keep interesting pharma opportunities close at hand.')}${list.length ? `<div class="jb-list">${list.map(card).join('')}</div>` : `<div class="jb-none">${I('bookmark', 40)}<h3>No saved jobs yet</h3><p class="muted">Tap Save on any job to keep it here.</p><a class="btn" href="#/job-results?browse=1">Browse jobs</a></div>`}</div>`;
   }, { layout: 'jobs', title: 'Saved jobs' });
   PL.act('jb-soon', () => ui().toast('Coming soon in the next phase', 'info'));
   PL.act('jb-alert', () => {
@@ -606,7 +628,7 @@
   /* ---------- detail ---------- */
   const li = a => `<ul class="jb-ul">${(a || []).map(x => `<li>${E(x)}</li>`).join('')}</ul>`;
   R.add('/job/:id', ctx => {
-    const j = PL.q.job(ctx.params.id), back = PL.state.jbFrom || PL.state.lastResults || '/job-results', backTxt = /^\/dashboard/.test(back) ? 'Back to dashboard' : /^\/my-applications/.test(back) ? 'Back to my applications' : /^\/saved-jobs/.test(back) ? 'Back to saved jobs' : /^\/job-search/.test(back) ? 'Back to search' : 'Back to results';
+    const j = PL.q.job(ctx.params.id) || PL.q.jobBySlug(ctx.params.id), back = PL.state.jbFrom || PL.state.lastResults || '/job-results', backTxt = /^\/dashboard/.test(back) ? 'Back to dashboard' : /^\/my-applications/.test(back) ? 'Back to my applications' : /^\/saved-jobs/.test(back) ? 'Back to saved jobs' : /^\/job-search/.test(back) ? 'Back to search' : 'Back to results';
     if (!j || j.status !== 'Published') return `<div class="container section">${ui().empty('briefcase', 'Job not available', 'This job may have been closed or removed.', `<a class="btn" href="#/job-results?browse=1">Browse jobs</a>`)}</div>`;
     const u = me();
     if (u && u.role === 'candidate') PL.q.syncLegacyApplications(u.id);
@@ -614,18 +636,15 @@
     if (pend && pend.t === 'save' && !PL.q.isSaved(u.id, j.id)) toggleSave(u, j.id);
     const c = co(j), saved = u && PL.q.isSaved(u.id, j.id), ap = applied(u, j.id);
     const externalApplyUrl = /^https?:\/\//i.test(j.externalApplyUrl || '') ? j.externalApplyUrl : '';
-    const visibleContacts = j.contactVisibility ? [
-      j.contactVisibility.email && j.contactEmail ? `<a href="mailto:${E(j.contactEmail)}">${E(j.contactEmail)}</a>` : '',
-      j.contactVisibility.phone && j.contactPhone ? `<a href="tel:${E(j.contactPhone)}">${E(j.contactPhone)}</a>` : ''
-    ].filter(Boolean) : [];
+    const visibleContacts = PL.q.jobContacts(j);
     const html = `<div class="container jb-detail"><a href="#${back}" class="small">${I('left', 14)} ${backTxt}</a>
       <div class="jb-detail-sections">
-        <section class="card jb-dhead"><div class="jb-top"><div class="jb-detail-logo">${ui().logo(c, 76)}</div><div class="grow"><h1>${E(j.title)}</h1><div class="jb-co">${E(c.name)}</div><div class="jb-category">${I('tag', 15)} ${E(j.department)}</div></div></div>
-          <div class="jb-meta big"><span>${I('briefcase', 15)}${expTxt(j)}</span><span>${I('rupee', 15)}${salTxt(j)}</span><span>${I('pin', 15)}${E(j.location || j.city)}</span><span>${I('clock', 15)}${E(j.type)} · ${E(j.workMode)}</span></div>
+        <section class="card jb-dhead"><div class="jb-top"><div class="jb-detail-logo">${ui().logo(c, 76)}</div><div class="grow"><h1>${E(j.title)}</h1>${j.freeApply ? '<span class="badge b-green">Free to apply</span>' : ''}<div class="jb-co">${E(c.name)}</div><div class="jb-category">${I('tag', 15)} ${E(j.department)}</div></div></div>
+          <div class="jb-meta big"><span>${I('briefcase', 15)}${expTxt(j)}</span><span>${I('rupee', 15)}${salTxt(j)}</span><span>${I('pin', 15)}${E((j.locations && j.locations.length ? j.locations : [j.location || j.city]).join(', '))}${j.pinCode ? ' · PIN ' + E(j.pinCode) : ''}</span><span>${I('clock', 15)}${E(j.type)} · ${E(j.workMode)}</span></div>
           <div class="jb-dstats"><span>Posted: <b>${days(j) === 0 ? 'Today' : days(j) + ' day' + (days(j) === 1 ? '' : 's') + ' ago'}</b></span><span>Openings: <b>${j.vacancies}</b></span><span>Applicants: <b>${(j.views || 0) % 97 + 3 + (ap ? 1 : 0)}</b></span></div>
         </section>
-        <section class="card pad-lg jb-description"><h2>About this job</h2><p>${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}${j.preferred ? `<h3>Preferred candidate</h3><p>${E(j.preferred)}</p>` : ''}${(j.benefits || []).length ? `<h3>Benefits</h3>${li(j.benefits)}` : ''}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${visibleContacts.length ? `<h3>Contact</h3><p>${E(j.contactName || '')}${j.contactName ? ' · ' : ''}${visibleContacts.join(' · ')}</p>` : ''}
-          <div class="jb-detail-facts"><div><span>Department</span><b>${E(j.department)}</b></div><div><span>Industry</span><b>${E(c.industry)}</b></div><div><span>Education</span><b>${E(j.qualification || 'Not specified')}</b></div><div><span>Work mode</span><b>${E(j.workMode)}</b></div></div>
+        <section class="card pad-lg jb-description"><h2>About this job</h2><p style="white-space:pre-line">${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}${j.preferred ? `<h3>Preferred candidate</h3><p>${E(j.preferred)}</p>` : ''}${(j.benefits || []).length ? `<h3>Benefits</h3>${li(j.benefits)}` : ''}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${contactMarkup(j)}${j.attachments && j.attachments.length ? `<h3>Attachments</h3><div class="jb-attachment-list">${attachmentMarkup(j)}</div>` : ''}
+          <div class="jb-detail-facts"><div><span>Department</span><b>${E(j.department)}</b></div><div><span>Division</span><b>${E(j.divisionName || 'Not specified')}</b></div><div><span>Segment / Speciality</span><b>${E(j.specialization || 'Not specified')}</b></div><div><span>Industry</span><b>${E(PL.JOB_INDUSTRY)}</b></div><div><span>Education</span><b>${E(j.qualification || 'Not specified')}</b></div><div><span>Work mode</span><b>${E(j.workMode)}</b></div></div>
           ${(j.skills || []).length ? `<h3>Key skills</h3><div class="jb-tags big">${j.skills.map(s => `<span>${E(s)}</span>`).join('')}</div>` : ''}
           <div class="jb-company-summary">${ui().logo(c, 44)}<div><b>${E(c.name)}</b><div class="small muted">${E(c.industry)}${c.hq ? ' · ' + E(c.hq) : ''}</div>${c.description ? `<p>${E(c.description)}</p>` : ''}</div></div>
         </section>
@@ -641,16 +660,24 @@
     if (u.role !== 'candidate') return ui().toast('Contact details are available to candidate accounts.', 'info');
     const j = PL.q.job(d.id), recruiter = j && PL.q.user(j.recruiterId);
     const links = [];
-    if (j && j.contactVisibility) {
-      if (j.contactVisibility.phone && j.contactPhone) links.push(`<a class="btn jb-contact-option" href="tel:${E(j.contactPhone)}">${I('phone', 18)} Call</a>`);
-      if (j.contactVisibility.email && j.contactEmail) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(j.contactEmail)}">${I('mail', 18)} Email</a>`);
+    const visibleContacts = PL.q.jobContacts(j);
+    if (visibleContacts.length) {
+      visibleContacts.forEach(contact => {
+        if (contact.showPhone && contact.phone && (contact.phoneType === 'Call' || contact.phoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.phone)}">${I('phone', 18)} Call ${E(contact.name)}</a>`);
+        if (contact.showPhone && contact.phone && (contact.phoneType === 'WhatsApp' || contact.phoneType === 'Call & WhatsApp')) links.push(`<a class="btn btn-secondary jb-contact-option" href="https://wa.me/${contact.phone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 18)} WhatsApp ${E(contact.name)}</a>`);
+        if (contact.showAlternatePhone && contact.alternatePhone && (contact.alternatePhoneType === 'Call' || contact.alternatePhoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.alternatePhone)}">${I('phone', 18)} Call alternate mobile ${E(contact.name)}</a>`);
+        if (contact.showAlternatePhone && contact.alternatePhone && (contact.alternatePhoneType === 'WhatsApp' || contact.alternatePhoneType === 'Call & WhatsApp')) links.push(`<a class="btn btn-secondary jb-contact-option" href="https://wa.me/${contact.alternatePhone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 18)} WhatsApp alternate mobile ${E(contact.name)}</a>`);
+        if (contact.showEmail && contact.email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(contact.email)}">${I('mail', 18)} Email ${E(contact.name)}</a>`);
+      });
+    } else if (j && (Array.isArray(j.contacts) || j.contactVisibility)) {
+      // Respect each contact's visibility preferences, including when all are hidden.
     } else {
       const phone = String(recruiter && recruiter.phone || '').replace(/\D/g, ''), email = recruiter && String(recruiter.email || '').trim();
       if (phone) links.push(`<a class="btn jb-contact-option" href="https://wa.me/${phone}" target="_blank" rel="noopener">${I('message', 18)} WhatsApp</a>`);
       if (phone) links.push(`<a class="btn btn-secondary jb-contact-option" href="tel:${phone}">${I('phone', 18)} Call</a>`);
       if (email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(email)}">${I('mail', 18)} Email</a>`);
     }
-    const content = `<p class="muted">${j && j.contactVisibility ? (links.length ? `Contact ${E(j.contactName || 'the hiring team')}.` : 'The hiring team has chosen not to show contact details to candidates.') : recruiter ? `Contact ${E(recruiter.name)} at ${E((PL.q.company(j.companyId) || {}).name || 'the hiring company')}.` : 'Contact information has not been provided for this job.'}</p>${links.length ? `<div class="jb-contact-options">${links.join('')}</div>` : '<p class="small muted">No contact options are available for this job.</p>'}`;
+    const content = `<p class="muted">${links.length ? `Contact the hiring team for ${E((PL.q.company(j.companyId) || {}).name || 'this job')}.` : j && (Array.isArray(j.contacts) || j.contactVisibility) ? 'The hiring team has chosen not to show contact details to candidates.' : recruiter ? `Contact ${E(recruiter.name)} at ${E((PL.q.company(j.companyId) || {}).name || 'the hiring company')}.` : 'Contact information has not been provided for this job.'}</p>${links.length ? `<div class="jb-contact-options">${links.join('')}</div>` : '<p class="small muted">No contact options are available for this job.</p>'}`;
     ui().modal({ title: 'View contact', body: content });
   });
 
@@ -696,7 +723,7 @@
       const platform = socialPlatform(link);
       return `<a class="jb-social-card" href="${E(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${E(link.name || link.label || 'Social link')} - ${E(link.platform || 'Social')}"><span class="jb-social-card-icon jb-social-icon-${platform}">${socialPlatformIcon(platform)}</span><span class="jb-social-card-copy"><b>${E(link.name || link.label || 'Social link')}</b><small>${E(link.platform || 'Social')}</small></span>${I('external', 15)}</a>`;
     }).join('');
-    return `<div class="jb-social-page"><header class="jb-social-page-head"><div><span class="xs muted">PharmaLinkIn communities</span><h1>Social Media</h1></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}</div>`;
+    return `<div class="jb-social-page"><header class="jb-social-page-head"><span class="jb-social-page-icon">${I('globe', 21)}</span><div><span class="jb-social-page-kicker">PHARMALINKIN COMMUNITY</span><h1>Social Media</h1><p>Follow our channels for pharma news, career updates, and community highlights.</p></div></header>${links.length ? `<div class="jb-social-grid">${cards}</div>` : '<p class="muted">No social media links available.</p>'}</div>`;
   };
   PL.router.add('/social', socialPage, { layout: 'jobs', roles: ['candidate', 'recruiter', 'advertiser', 'admin'], title: 'Social Media' });
   PL.act('jb-social', () => PL.go('/social'));

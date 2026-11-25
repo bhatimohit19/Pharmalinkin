@@ -160,6 +160,11 @@ body{background:#F4F6FA}
 
 /* Client-aligned job posting form */
 .jb-job-post-card{max-width:760px}
+.jb-post-top-header{display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:16px 18px;border:1px solid #D7E7FA;border-radius:16px;background:radial-gradient(circle at 100% 0,rgba(21,94,239,.1),transparent 34%),linear-gradient(115deg,#EFF6FF,#fff 72%);box-shadow:0 4px 16px rgba(16,54,104,.05)}
+.jb-post-header-icon{width:44px;height:44px;display:grid;place-items:center;flex:none;border-radius:13px;background:#E1EEFF;color:#155EEF}
+.jb-post-header-kicker{display:block;margin-bottom:3px;color:#155EEF;font-size:.64rem;font-weight:750;letter-spacing:.1em}
+.jb-post-top-header h1{margin:0;font-size:1.55rem;line-height:1.22;letter-spacing:-.025em;color:#123B66}
+.jb-post-top-header p{margin:5px 0 0;color:#667085;font-size:.86rem;line-height:1.4}
 .jb-job-post-card .onb2-body{padding:0 2px}
 .jb-client-step1,.jb-description-step,.jb-contact-step{display:flex;flex-direction:column;gap:12px}
 .jb-client-step1{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
@@ -167,6 +172,25 @@ body{background:#F4F6FA}
 .jb-company-value{min-height:46px;display:flex;align-items:center;gap:10px;border:0;border-bottom:1px solid #D5DEEA;font-size:1.02rem}
 .jb-company-value .logo{width:38px!important;height:38px!important}
 .jb-step1-ai{width:100%;min-height:48px;margin-top:4px;font-weight:700}
+.jb-locations-field{min-width:0}
+.jb-location-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+.jb-location-entry input{min-width:0}
+.jb-location-entry .btn{min-height:44px}
+.jb-location-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.jb-location-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:5px 7px 5px 11px;border:1px solid #D4E1F1;border-radius:999px;background:#F7FAFF;color:#344054;font-size:.82rem}
+.jb-location-chip>span{min-width:0;overflow-wrap:anywhere}
+.jb-location-chip>b{flex:none;padding:2px 6px;border-radius:999px;background:#E5F0FF;color:#155EEF;font-size:.67rem}
+.jb-location-chip>button{width:22px;height:22px;display:grid;place-items:center;flex:none;border:0;border-radius:50%;background:#E4EAF2;color:#344054;font-size:1rem;line-height:1;cursor:pointer}
+.jb-location-chip>button:hover{background:#D0D9E5}
+.jb-salary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px}
+.jb-salary-grid>.field{min-width:0}
+.jb-salary-grid input,.jb-salary-grid select{width:100%;min-width:0}
+.jb-step1-ai{padding:14px 16px;border:1px solid #DCE7F5;border-radius:12px;background:linear-gradient(120deg,#F5F9FF,#fff)}
+.jb-step1-ai>p{margin:0 0 10px;color:#344054;font-weight:650}
+.jb-step1-ai-actions{display:flex;flex-wrap:wrap;gap:9px}
+.jb-step1-ai-actions .btn{min-height:46px}
+.jb-step1-ai-actions .btn:disabled{opacity:.5;cursor:not-allowed}
+.jb-step1-ai>small{display:block;margin-top:8px;font-weight:400}
 .jb-description-step{padding-top:2px}
 .jb-description-step>.field{width:100%}
 .jb-banner-field{border:1px solid #E2E7EF;border-radius:10px;padding:10px}
@@ -196,9 +220,21 @@ body{background:#F4F6FA}
 .jb-switch input:checked+span:after{left:25px}
 .jb-contact-step>h3{margin:8px 0 0;font-size:1rem}
 .jb-contact-card{position:relative;margin-top:8px;padding:28px 14px 12px;border:1px solid #A9BFD8;border-radius:10px}
+.jb-contact-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .jb-contact-badge{position:absolute;top:-11px;left:12px;padding:4px 8px;border-radius:6px;background:#0879E8;color:#fff;font-size:.72rem;font-weight:700}
 .jb-contact-badge.alternate{background:#ECEFF5;color:#3E4C61}
 .jb-contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.jb-contact-grid>.field.full,.jb-contact-grid>.jb-contact-field-with-visibility.full,.jb-contact-number-row{grid-column:1/-1}
+.jb-contact-number-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.jb-contact-field-with-visibility{position:relative;min-width:0}
+.jb-contact-field-with-visibility>.field>label{padding-right:72px}
+.jb-contact-visibility{position:absolute;top:0;right:0;display:inline-flex;align-items:center;gap:5px;margin:0;color:#475467;font-size:.7rem;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer}
+.jb-contact-visibility input{position:absolute;width:1px;height:1px;opacity:0}
+.jb-contact-switch{position:relative;width:28px;height:16px;flex:none;border-radius:999px;background:#CBD5E1;transition:background .15s}
+.jb-contact-switch:after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #667085;transition:left .15s}
+.jb-contact-visibility input:checked+.jb-contact-switch{background:#0879E8}
+.jb-contact-visibility input:checked+.jb-contact-switch:after{left:14px}
+.jb-contact-visibility input:focus-visible+.jb-contact-switch{outline:2px solid #155EEF;outline-offset:2px}
 .jb-verification-info{padding:14px;border:1px solid #BDD8FC;border-radius:10px;background:#F4F8FF;color:#1C55A5}
 .jb-verification-info>div{display:flex;flex-direction:column}
 .jb-publish-option,.jb-upload-option,.jb-link-option,.jb-feature-card{margin-top:14px;color:#173B70}
@@ -219,9 +255,38 @@ body{background:#F4F6FA}
 .jb-feature-toggle input{width:44px;height:24px;accent-color:#0879E8}
 .jb-schedule-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .jb-schedule-range label{display:flex;flex-direction:column;gap:5px;color:#344054;font-size:.78rem;font-weight:700}
+.jb-job-post-card .jb-posting-section{padding:16px 0;border-top:1px solid var(--border)}
+.jb-job-post-card .jb-posting-section>h3{margin:0 0 10px;font-size:1rem}
+.jb-job-post-card .field input:not([type=checkbox]),.jb-job-post-card .field select,.jb-job-post-card .field textarea{border:0;border-bottom:1px solid #B7C4D5;border-radius:0;background:transparent;box-shadow:none;padding-left:2px;padding-right:2px}
+.jb-job-post-card .field input:focus,.jb-job-post-card .field select:focus,.jb-job-post-card .field textarea:focus{border-bottom:2px solid var(--primary);outline:0}
+.jb-posting-toggle-card{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 14px;padding:12px 14px;border:1px solid #E2E7EF;border-radius:10px;background:#fff}
+.jb-posting-toggle-card>span{display:flex;flex-direction:column;gap:3px}
+.jb-posting-toggle-card small{color:var(--muted)}
+.jb-posting-toggle-card>.help{grid-column:1/-1}
+.jb-description-actions{flex-wrap:wrap;margin-bottom:10px}
+.jb-contact-card-head .link-btn{padding:4px}
+.jb-add-contact{align-self:flex-start}
+.jb-posting-section .jb-contact-card{margin-top:14px}
+.jb-publish-radios{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.jb-attachment-list{display:flex;flex-direction:column;gap:8px;margin:10px 0 0;padding:0;list-style:none}
+.jb-attachment-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.jb-attachment-list a,.jb-job-attachment{overflow-wrap:anywhere}
+.jb-job-contacts{margin-top:18px;padding-top:12px;border-top:1px solid var(--border)}
+.jb-job-contacts h3{margin:0 0 10px}
+.jb-job-contact{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 0;border-top:1px solid var(--border)}
+.jb-job-contact:first-of-type{border-top:0}
+.jb-job-contact-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.jb-job-contact-actions>span{font-weight:600}
+.jb-job-attachment{display:inline-flex;align-items:center;gap:6px;padding:6px 0}
+.jb-preview-contact{padding:9px 0;border-top:1px solid var(--border)}
+.jb-preview-contact:first-of-type{border-top:0}
+.jb-preview-contact>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px}
 .jb-social-page{max-width:980px;margin:0 auto;padding:22px 16px 36px}
-.jb-social-page-head{display:flex;align-items:center;margin-bottom:16px}
-.jb-social-page-head h1{margin:2px 0 0;color:#102F59;font-size:1.45rem}
+.jb-social-page-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:18px 20px;border:1px solid #DCE9F7;border-radius:16px;background:linear-gradient(115deg,#F1F7FF,#fff 75%)}
+.jb-social-page-icon{width:42px;height:42px;display:grid;place-items:center;flex:none;border-radius:13px;background:#E5F0FF;color:#155EEF}
+.jb-social-page-kicker{display:block;color:#155EEF;font-size:.64rem;font-weight:750;letter-spacing:.1em}
+.jb-social-page-head h1{margin:3px 0;color:#102F59;font-size:1.45rem;line-height:1.2}
+.jb-social-page-head p{margin:4px 0 0;color:#667085;font-size:.84rem;line-height:1.45}
 .jb-social-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .jb-social-card{min-width:0;min-height:86px;display:grid;grid-template-columns:38px minmax(0,1fr) 16px;align-items:center;gap:9px;padding:10px;border:1px solid #DCE6F2;border-radius:12px;background:#fff;color:var(--text);text-decoration:none;box-shadow:0 2px 8px rgba(15,49,86,.04)}
 .jb-social-card:hover{border-color:#9CC8F2;background:#F8FBFF;text-decoration:none}
@@ -239,17 +304,36 @@ body{background:#F4F6FA}
 @media (max-width:640px){
   .jb-job-posting{padding:10px 0 28px}
   .jb-job-post-card{max-width:none}
+  .jb-post-top-header{align-items:flex-start;gap:11px;padding:14px;border-radius:14px}
+  .jb-post-header-icon{width:38px;height:38px;border-radius:11px}
+  .jb-post-top-header h1{font-size:1.22rem}
+  .jb-post-top-header p{font-size:.78rem}
   .jb-job-post-card .onb2-body{padding:0}
-  .jb-client-step1,.jb-contact-grid{grid-template-columns:minmax(0,1fr)}
+  .jb-client-step1,.jb-contact-grid,.jb-contact-number-row{grid-template-columns:minmax(0,1fr)}
   .jb-contact-card{padding-left:10px;padding-right:10px}
+  .jb-contact-field-with-visibility>.field>label{padding-right:70px}
+  .jb-salary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jb-salary-grid>.field:first-child{grid-column:1/-1}
+  .jb-step1-ai-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .jb-step1-ai-actions .btn{width:100%;justify-content:center}
+  .jb-location-entry .btn{min-width:74px;padding-left:12px;padding-right:12px}
   .jb-banner-preview{height:90px}
   .jb-ai-toolbar{gap:12px}
+  .jb-description-actions,.jb-publish-radios{display:grid;grid-template-columns:minmax(0,1fr)}
+  .jb-description-actions .btn,.jb-job-contact-actions .btn{width:100%;justify-content:center}
+  .jb-job-contact-actions{width:100%}
+  .jb-job-post-card .jb-job-actions{align-items:stretch}
+  .jb-job-post-card .jb-job-actions>.btn{width:100%}
   .jb-job-post-card .jb-job-actions{gap:8px}
   .jb-job-post-card .jb-job-actions>.row{width:auto}
   .jb-job-post-card .jb-job-actions .btn{min-height:46px}
   .jb-verification-info{align-items:flex-start}
   .jb-schedule-range{grid-template-columns:1fr}
   .jb-social-page{padding:16px 10px 28px}
+  .jb-social-page-head{align-items:flex-start;gap:11px;padding:14px;border-radius:14px}
+  .jb-social-page-icon{width:38px;height:38px;border-radius:11px}
+  .jb-social-page-head h1{font-size:1.25rem}
+  .jb-social-page-head p{font-size:.78rem}
   .jb-social-grid{grid-template-columns:minmax(0,1fr);gap:8px}
   .jb-social-card{min-height:76px;grid-template-columns:38px minmax(0,1fr) 14px;padding:10px;gap:9px}
   .jb-social-card-icon{width:38px;height:38px}
