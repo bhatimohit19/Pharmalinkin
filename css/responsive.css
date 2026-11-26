@@ -116,9 +116,17 @@ ol.onb2-steps .lbl{font-size:.56rem;letter-spacing:-.2px;max-width:100%;overflow
 @media(max-width:900px){
   .home-jobs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .home-category-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .home-article-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-article-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:720px){
+  .site-header.home-desktop-header{display:none!important}
+  .home-mobile-header{position:sticky;top:0;z-index:45;display:block}
+  .home-mobile-header-row .brand-mark{width:30px;height:30px}
+  .home-landing-main{width:100%;margin:0;padding:0}
+  .home-landing-main>.home-page{min-height:100vh;padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  .home-desktop-home{display:none!important}
+  .home-mobile-page{display:block;padding-bottom:12px}
+  .home-landing-main+.site-footer{display:none}
   .home-page-candidate{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   .home-hero{padding:18px 14px 22px}
   .home-brand-line{gap:7px;font-size:.74rem}
@@ -171,6 +179,17 @@ ol.onb2-steps .lbl{font-size:.56rem;letter-spacing:-.2px;max-width:100%;overflow
   .home-social-links{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:380px){
+  .home-mobile-header{padding-right:11px;padding-left:11px}
+  .home-mobile-header .brand{font-size:.96rem}
+  .home-mobile-auth{gap:8px}
+  .home-mobile-hero{padding-right:11px;padding-left:11px}
+  .home-mobile-content{padding-right:11px;padding-left:11px}
+  .home-mobile-resume{margin-right:11px;margin-left:11px}
+  .home-mobile-hero-slide{grid-template-columns:minmax(0,1fr) 94px;padding-right:9px;padding-left:13px}
+  .home-mobile-hero-slide>img{width:88px;height:110px}
+  .home-mobile-hero-slide h1{font-size:1.08rem}
+  .home-mobile-section-head{gap:5px}
+  .home-mobile-section-head .home-mobile-carousel-controls button{width:24px;height:24px}
   .home-brand-line{flex-wrap:wrap}
   .home-trust-tag{margin-left:39px}
   .home-section-head{align-items:flex-start}

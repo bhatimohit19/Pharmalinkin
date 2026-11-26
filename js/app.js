@@ -38,12 +38,14 @@
   PL.brandHtml = brand; PL.profileMenu = profileMenu; PL.footerHtml = () => footer(); PL.mobileBackbar = mobileBackbar;
   PL.act('history-back', () => window.history.back());
   function publicLayout(ctx, html, u) {
+    const isHome = ctx.path === '/';
     const cand = PL.onboardingOnly() && u && u.role === 'candidate';
     const links = cand ? [['Jobs', '/job-results']] : PL.onboardingOnly() ? [] : [['Jobs', '/jobs'], ['Companies', '/companies'], ['News', '/news'], ['Pricing', '/pricing']];
     const act = active(/^\/job/.test(ctx.path) && cand ? '/job-results' : ctx.path, links);
-    return `${BANNER}<header class="site-header"><div class="container inner">${brand(cand ? '/job-results' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
+    const mobileHeader = isHome ? `<header class="home-mobile-header"><div class="home-mobile-header-row">${brand(cand ? '/job-results' : '/')}${u ? `<a class="home-mobile-account" href="#${PL.auth.homeFor(u)}">${ui().avatar(u, 32)}<span>My account</span></a>` : `<div class="home-mobile-auth"><a href="#/login">Log in</a><a href="#/register?role=candidate">Join</a></div>`}</div><a class="home-mobile-search" href="#/job-results?browse=1" aria-label="Search jobs, companies, and locations">${I('search', 17)}<span>Search jobs, companies, locations</span></a></header>` : '';
+    return `${BANNER}<header class="site-header ${isHome ? 'home-desktop-header' : ''}"><div class="container inner">${brand(cand ? '/job-results' : '/')}${links.length ? `<nav class="main-nav" id="mainnav" aria-label="Main">${links.map(l => `<a href="#${l[1]}" class="${act === l ? 'active' : ''}">${l[0]}</a>`).join('')}</nav>` : ''}
       <div class="row auth-btns" style="margin-left:auto">${u ? `${cand ? '' : `<a class="btn btn-secondary btn-sm" href="#${PL.auth.homeFor(u)}">My profile</a>`}${profileMenu(u)}` : `<span class="muted small hdr-q">Already have an account?</span><a class="btn btn-ghost btn-sm" href="#/login">Sign in</a>`}${links.length ? `<button class="icon-btn menu-toggle" data-action="menu-toggle" aria-label="Toggle menu" aria-controls="mainnav" style="margin-left:0">${I('menu')}</button>` : ''}</div></div></header>
-      ${mobileBackbar(ctx)}<main id="main" tabindex="-1">${html}</main>${footer()}`;
+      ${mobileHeader}${mobileBackbar(ctx)}<main id="main" tabindex="-1" class="${isHome ? 'home-landing-main' : ''}">${html}</main>${footer()}`;
   }
   function footer() {
     if (PL.onboardingOnly()) return `<footer class="site-footer"><div class="container"><div class="row between" style="gap:12px"><div class="brand" style="color:#fff"><span class="brand-mark">${I('pill', 18)}</span> PharmaLinkIn</div><ul class="row" style="list-style:none;margin:0;padding:0;gap:16px"><li><a href="#/page/privacy">Privacy</a></li><li><a href="#/page/terms">Terms</a></li><li><a href="#/page/contact">Contact</a></li><li><button class="link-btn" style="color:#D0D5DD" data-action="reset-demo">Reset demo data</button></li></ul></div><p class="xs mt">© ${new Date().getFullYear()} PharmaLinkIn prototype · Candidate onboarding preview · Demo content only</p></div></footer>`;
@@ -123,7 +125,7 @@
   PL.router.add('/app/search', ctx => {
     const q = (ctx.query.q || '').toLowerCase(), u = PL.auth.user(), d = db();
     const people = d.users.filter(x => ['candidate', 'recruiter'].includes(x.role) && x.id !== u.id && x.status === 'Active' && !(x.profile && x.profile.privacy && x.profile.privacy.visibility === 'Private') && (!q || (x.name + ' ' + ((x.profile && x.profile.headline) || '') + ' ' + ((x.profile && x.profile.company) || '')).toLowerCase().includes(q))).slice(0, 8);
-    const jobs = PL.q.publicJobs().filter(j => !q || (j.title + ' ' + j.department + ' ' + PL.q.company(j.companyId).name).toLowerCase().includes(q)).slice(0, 6);
+    const jobs = PL.q.publicJobs().filter(j => !q || (j.title + ' ' + j.department + ' ' + ((PL.q.company(j.companyId) || {}).name || j.companyName || 'Confidential Employer')).toLowerCase().includes(q)).slice(0, 6);
     const comps = d.companies.filter(c => !q || c.name.toLowerCase().includes(q)).slice(0, 6);
     const ad = PL.ads && PL.ads.searchAd(q);
     return `<div class="narrow" style="max-width:860px;margin:0 auto"><h1 style="font-size:1.4rem">Search results for “${E(ctx.query.q || '')}”</h1>

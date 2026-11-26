@@ -7,6 +7,11 @@
     progress: (used, limit, label) => `<div class="small row between"><span>${PL.esc(label)}</span><b>${used} / ${limit >= 999 ? '∞' : limit}</b></div>${PL.ui.progress(limit ? (used / limit) * 100 : 0, used >= limit ? 'danger' : '')}`
   }));
   const db = () => PL.store.s, I = (n, s) => PL.ui.icon(n, s), E = s => PL.esc(s), F = () => PL.ui.fmt, me = () => PL.auth.user();
+  const contactMethodOptions = [
+    { value: 'Call', label: 'Call' },
+    { value: 'WhatsApp', label: 'WhatsApp' },
+    { value: 'Call & WhatsApp', label: 'Call & WhatsApp' }
+  ];
   const R = { layout: 'employer', roles: ['recruiter'] };
   const reg = (p, h, title) => PL.router.add(p, h, Object.assign({ title }, R));
   const company = u => PL.q.companyOf(u);
@@ -97,8 +102,10 @@
   /* ---------- three-step job-posting flow ---------- */
   const JOB_STEPS = ['Basic Job Details', 'Title, Description & Contact', 'Preview & Publish'];
   const lines = t => (t || '').split('\n').map(s => s.trim()).filter(Boolean);
-  const defaultJob = () => ({ title: '', department: 'Medical Representative', divisionName: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', locations: [], location: '', pinCode: '', currency: 'INR', qualification: '', expMin: '', expMax: '', salMin: '', salMax: '', salaryPeriod: 'LPA', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, descriptionMode: 'ai', questions: [], closingDate: '', banner: '', industryType: PL.JOB_INDUSTRY, contacts: [{ name: '', phone: '', phoneType: 'Call', alternatePhone: '', alternatePhoneType: 'Call', email: '', showPhone: false, showAlternatePhone: false, showEmail: false }], contactName: '', contactEmail: '', contactPhone: '', alternateContactName: '', alternateContactPhone: '', alternateContactPhone2: '', alternateContactEmail: '', contactVisibility: { email: false, phone: false, toggle: false }, alternateContacts: [], freeApply: false, scheduleEnabled: false, scheduleAttachment: '', attachments: [], scheduleMinDate: '', scheduleMaxDate: '', publishAt: '', featured: false, paidJob: false, paidAmount: 0, externalApplyUrl: '', customJobSlug: '' });
-  const descriptionInputs = d => JSON.stringify([d.companyName, d.department, d.divisionName, d.specialization, d.locations, d.city, d.state, d.location, d.type, d.workMode, d.currency, d.salMin, d.salMax]);
+  const defaultJob = () => ({ title: '', department: 'Medical Representative', divisionName: '', specialization: '', type: 'Full-time', workMode: 'On-site', vacancies: 1, city: '', state: '', locations: [], location: '', pinCode: '', currency: 'INR', salaryRange: '2-5', experienceRange: '1-3', qualification: '', expMin: 1, expMax: 3, salMin: 2, salMax: 5, salaryPeriod: 'LPA', skills: [], responsibilities: [], benefits: [], preferred: '', incentives: '', travel: '', description: '', descriptionAI: false, descriptionMode: 'ai', questions: [], closingDate: '', banner: '', industryType: PL.JOB_INDUSTRY, contacts: [{ name: '', phone: '', phoneType: 'Call', alternatePhone: '', alternatePhoneType: 'Call', email: '', showPhone: false, showAlternatePhone: false, showEmail: false }], contactName: '', contactEmail: '', contactPhone: '', alternateContactName: '', alternateContactPhone: '', alternateContactPhone2: '', alternateContactEmail: '', contactVisibility: { email: false, phone: false, toggle: false, showContact: true }, alternateContacts: [], freeApply: false, scheduleEnabled: false, scheduleAttachment: '', attachments: [], scheduleMinDate: '', scheduleMaxDate: '', publishAt: '', featured: false, paidJob: false, paidAmount: 0, externalApplyUrl: '', customJobSlug: '' });
+  const salaryBands = { '0-2': [0, 2], '2-5': [2, 5], '5-7': [5, 7] };
+  const experienceBands = { '1-3': [1, 3], '5-7': [5, 7] };
+  const descriptionInputs = d => JSON.stringify([d.companyName, d.department, d.divisionName, d.specialization, d.locations, d.city, d.state, d.location, d.type, d.workMode, d.currency, d.salaryRange, d.salMin, d.salMax, d.experienceRange, d.expMin, d.expMax]);
   function normalizeContacts(d, u, stored = true) {
     const source = stored ? d : Object.assign({}, d, { contacts: undefined });
     const contacts = PL.q.jobContacts(source, true);
@@ -109,6 +116,7 @@
     const w = PL.state.jw, d = w && w.d;
     if (!d || !form) return;
     const before = descriptionInputs(d), x = ui().formData(form);
+    const previousSalaryRange = d.salaryRange, previousExperienceRange = d.experienceRange;
     const contactKeys = Object.keys(x).filter(k => /^contact\d+(Name|Phone|PhoneType|AlternatePhone|AlternatePhoneType|Email|ShowPhone|ShowAlternatePhone|ShowEmail)$/.test(k));
     if (contactKeys.length) {
       const contacts = d.contacts || [];
@@ -120,8 +128,31 @@
       d.contacts = contacts;
     }
     Object.keys(x).forEach(k => {
-      if (!contactKeys.includes(k) && !['jobAttachmentFile', 'locationEntry', 'publishMode'].includes(k)) d[k] = x[k];
+      if (!contactKeys.includes(k) && !['jobAttachmentFile', 'locationEntry', 'publishMode', 'showContactDetails'].includes(k)) d[k] = x[k];
     });
+    if (x.showContactDetails !== undefined) {
+      d.contactVisibility = d.contactVisibility || {};
+      d.contactVisibility.showContact = !!x.showContactDetails;
+    }
+    if (x.salaryRange !== undefined && x.salaryRange !== previousSalaryRange) {
+      const range = salaryBands[x.salaryRange], currency = form.querySelector('[name="currency"]');
+      if (range) {
+        d.salMin = range[0];
+        d.salMax = range[1];
+        d.currency = 'INR';
+        if (currency) currency.value = 'INR';
+      } else if (!x.salaryRange) {
+        d.salMin = '';
+        d.salMax = '';
+      }
+    }
+    if (x.experienceRange !== undefined && x.experienceRange !== previousExperienceRange && experienceBands[x.experienceRange]) {
+      d.expMin = experienceBands[x.experienceRange][0];
+      d.expMax = experienceBands[x.experienceRange][1];
+    } else if (x.experienceRange !== undefined && x.experienceRange !== previousExperienceRange) {
+      d.expMin = '';
+      d.expMax = '';
+    }
     if (x.companyName !== undefined) {
       const companyName = String(x.companyName || '').trim();
       const match = db().companies.find(item => item.name.toLowerCase() === companyName.toLowerCase());
@@ -153,7 +184,7 @@
     d.alternateContactPhone = primary.alternatePhone || alternate.phone || '';
     d.alternateContactPhone2 = alternate.phone || '';
     d.alternateContactEmail = alternate.email || '';
-    d.contactVisibility = { email: d.contacts.some(c => c.showEmail && c.email), phone: d.contacts.some(c => (c.showPhone && c.phone) || (c.showAlternatePhone && c.alternatePhone)), toggle: d.contacts.some(c => c.showPhone || c.showAlternatePhone || c.showEmail) };
+    d.contactVisibility = Object.assign({}, d.contactVisibility, { email: d.contacts.some(c => c.showEmail && c.email), phone: d.contacts.some(c => (c.showPhone && c.phone) || (c.showAlternatePhone && c.alternatePhone)), toggle: d.contacts.some(c => c.showPhone || c.showAlternatePhone || c.showEmail) });
     if (before !== descriptionInputs(d)) {
       if (d.descriptionAI) w.descriptionFingerprint = '';
       if (w.step === 0) {
@@ -165,11 +196,11 @@
   }
   function stepOneComplete(w) {
     const d = w.d;
-    return !!((d.companyId && PL.q.company(d.companyId)) || (d.companyName || '').trim()) && !!d.department && !!d.divisionName && !!d.specialization && !!(d.locations && d.locations.length) && !!d.pinCode && d.salMin !== '' && d.salMax !== '' && !!d.type && !!d.workMode && !!d.currency;
+    return !!d.department && !!(d.locations && d.locations.length) && !!d.type && !!d.workMode;
   }
   function ready(w, step) {
     const d = w.d;
-    if (step === 0) return stepOneComplete(w) && +d.salMax >= +d.salMin;
+    if (step === 0) return stepOneComplete(w) && (d.salMin === '' || d.salMin == null || d.salMax === '' || d.salMax == null || +d.salMax >= +d.salMin);
     if (step === 1) {
       const contactsValid = (d.contacts || []).every(c => (!c.showPhone || /^[+\d][\d\s()-]{8,18}$/.test(c.phone || '')) && (!c.showAlternatePhone || /^[+\d][\d\s()-]{8,18}$/.test(c.alternatePhone || '')) && (!c.showEmail || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email || '')) && (!(c.showPhone || c.showAlternatePhone || c.showEmail) || !!(c.name || '').trim()));
       return !!(d.title || '').trim() && !!(d.description || '').trim() && d.description.trim().length >= 30 && contactsValid && (d.descriptionMode === 'manual' || (d.descriptionAI && w.descriptionFingerprint === descriptionInputs(d)));
@@ -180,6 +211,12 @@
     const companyName = d.companyName || (d.companyId && PL.q.company(d.companyId) || {}).name;
     return [companyName, d.department, d.location || [d.city, d.state].filter(Boolean).join(', ')].map(value => String(value || '').trim()).filter(Boolean).join(' – ');
   }
+  function suggestedTitleWithAI(d) {
+    const role = String(d.department || 'Pharmaceutical professional').trim();
+    const focus = [d.specialization, d.divisionName].filter(Boolean).join(' · ');
+    const location = d.location || [d.city, d.state].filter(Boolean).join(', ');
+    return [role + (focus ? ` – ${focus}` : ''), location].filter(Boolean).join(' | ');
+  }
   async function generateDescription(w) {
     await new Promise(resolve => setTimeout(resolve, 850));
     const d = w.d, duties = PL.deptText(d.department).r;
@@ -188,7 +225,7 @@
       : d.currency === 'USD'
         ? `$${d.salMin}–${d.salMax || d.salMin}`
         : `${d.currency || ''} ${d.salMin}–${d.salMax || d.salMin}`;
-    const pay = d.salMin ? `The indicated compensation is ${salaryLabel}.` : 'Compensation details can be shared during the hiring process.';
+    const pay = d.salMin !== '' && d.salMin != null ? `The indicated compensation is ${salaryLabel}.` : 'Compensation details can be shared during the hiring process.';
     const title = d.title.trim() || suggestedTitle(d) || d.department || 'Open role';
     const locations = (d.locations && d.locations.length ? d.locations : [d.location || d.city].filter(Boolean)).join(', ') || 'a location to be confirmed';
     const division = d.divisionName ? ` in the ${d.divisionName}${/division$/i.test(d.divisionName) ? '' : ' division'}` : '';
@@ -219,8 +256,8 @@
   }
   function preview(d, u) {
     const c = d.companyId ? PL.q.company(d.companyId) : null, companyName = c ? c.name : d.companyName;
-    const contacts = PL.q.jobContacts(d).map(contact => {
-      const phoneLinks = (number, type, label) => `<div><b>${label}:</b> ${E(number)} ${type === 'Call' || type === 'Call & WhatsApp' ? `<a href="tel:${E(number)}">Call</a>` : ''} ${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}</div>`;
+    const contacts = d.contactVisibility && d.contactVisibility.showContact === false ? [] : PL.q.jobContacts(d).map(contact => {
+      const phoneLinks = (number, type, label) => `<div><b>${label}:</b> ${E(number)} ${type === 'Call' || type === 'Call & WhatsApp' ? `<a href="tel:${E(number)}" aria-label="Call ${E(label.toLowerCase())}" title="Call">${I('phone', 15)}</a>` : ''} ${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}</div>`;
       const phone = contact.showPhone && contact.phone ? phoneLinks(contact.phone, contact.phoneType, 'Mobile') : '';
       const alternatePhone = contact.showAlternatePhone && contact.alternatePhone ? phoneLinks(contact.alternatePhone, contact.alternatePhoneType, 'Alternate mobile') : '';
       const email = contact.showEmail && contact.email ? `<a href="mailto:${E(contact.email)}">${E(contact.email)}</a>` : '';
@@ -228,16 +265,18 @@
     }).join('');
     const attachments = (d.attachments || []).map(file => `<a href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${I('file', 14)} ${E(file.name)}</a>`).join('');
     const locations = (d.locations && d.locations.length ? d.locations : (d.location ? [d.location] : [])).join(', ');
-    const salary = d.salMin
+    const salary = d.salaryRange && d.currency === 'INR'
+      ? `₹${d.salaryRange.replace('-', '–')} LPA`
+      : d.salMin
       ? d.currency === 'INR'
         ? `₹${d.salMin} – ₹${d.salMax || d.salMin} LPA`
         : d.currency === 'USD'
           ? `$${d.salMin} – $${d.salMax || d.salMin}`
           : `${d.currency || ''} ${d.salMin} – ${d.salMax || d.salMin}`
       : 'Not disclosed';
-    return `<section class="jb-post-preview"><div class="jb-post-company">${c ? ui().logo(c, 48) : ''}<div><h2>${E(d.title)}</h2><b>${E(companyName || '')}</b></div></div>
+    return `<section class="jb-post-preview"><div class="jb-post-company">${c ? ui().logo(c, 48) : ''}<div><h2>${E(d.title)}</h2><b>${E(companyName || 'Confidential Employer')}</b></div></div>
       <p class="muted">${E(d.department)}${d.divisionName ? ` · ${E(d.divisionName)}` : ''}${d.specialization ? ` · ${E(d.specialization)}` : ''} · ${E(locations)}${d.pinCode ? ` · PIN ${E(d.pinCode)}` : ''} · ${E(d.type)} · ${E(d.workMode)}</p>
-      <div class="jb-post-preview-facts"><span><b>Salary:</b> ${E(salary)}</span><span><b>Industry:</b> ${E(PL.JOB_INDUSTRY)}</span></div>
+      <div class="jb-post-preview-facts"><span><b>Salary:</b> ${E(salary)}</span><span><b>Experience:</b> ${E(d.expMin !== '' && d.expMax !== '' && d.expMin != null && d.expMax != null ? `${d.expMin}–${d.expMax} Years` : 'Not specified')}</span><span><b>Industry:</b> ${E(PL.JOB_INDUSTRY)}</span></div>
       <div class="jb-post-preview-description">${E(d.description)}</div>
       <h3>Contact details</h3>${contacts || '<p class="muted">No contact details will be shown; candidates apply through PharmaLinkIn.</p>'}
       ${(d.attachments || []).length ? `<h3>Attachments</h3><div class="jb-attachment-list">${attachments}</div>` : ''}
@@ -283,6 +322,7 @@
         w.d.pinCode = pins[0];
         w.pinLookupStatus = 'Suggested from the primary location; verify and edit if needed.';
       }
+      if (!w.stateManual && matches[0].State) w.d.state = matches[0].State;
     } catch (error) {
       if (PL.state.jw !== w || token !== w.pinLookupToken || w.pinCodeManual || w.step !== 0) return;
       w.pinLookupStatus = 'Could not find one exact PIN for this location. Enter it manually.';
@@ -296,6 +336,13 @@
       const j = editId ? PL.q.job(editId) : null;
       if (editId && (!j || (u.role !== 'admin' && j.recruiterId !== u.id && (!company(u) || j.companyId !== company(u).id)))) return ui().empty('briefcase', 'Job not found', 'This job does not exist or is not yours.', '<a class="btn" href="#/employer/jobs">Back</a>');
       const d = j ? Object.assign(defaultJob(), JSON.parse(JSON.stringify(j))) : defaultJob();
+      if (j && !Object.prototype.hasOwnProperty.call(j, 'salaryRange')) {
+        d.salaryRange = Object.keys(salaryBands).find(range => String(salaryBands[range][0]) === String(d.salMin) && String(salaryBands[range][1]) === String(d.salMax)) || '';
+      }
+      if (d.currency !== 'INR') d.salaryRange = '';
+      if (j && !Object.prototype.hasOwnProperty.call(j, 'experienceRange')) {
+        d.experienceRange = Object.keys(experienceBands).find(range => String(experienceBands[range][0]) === String(d.expMin) && String(experienceBands[range][1]) === String(d.expMax)) || '';
+      }
       const own = company(u);
       if (own) { d.companyId = own.id; d.companyName = own.name; }
       const profile = u.profile || {}, currentExperience = (profile.experience || []).find(item => item.current);
@@ -305,7 +352,7 @@
         if (match) d.companyId = match.id;
         d.companyName = profileCompany;
       }
-      d.contacts = j ? normalizeContacts(d, u, Array.isArray(j.contacts)) : [{ name: u.name || '', phone: u.phone || '', phoneType: 'Call', alternatePhone: '', alternatePhoneType: 'Call', email: u.email || '', showPhone: false, showAlternatePhone: false, showEmail: false }];
+      d.contacts = j ? normalizeContacts(d, u, Array.isArray(j.contacts)) : [{ name: u.name || '', phone: u.phone || '', phoneType: 'Call', alternatePhone: '', alternatePhoneType: 'Call', email: u.email || '', showPhone: !!u.phone, showAlternatePhone: false, showEmail: !!u.email }];
       if (d.companyId && PL.q.company(d.companyId)) d.companyName = PL.q.company(d.companyId).name;
       d.location = d.location || [d.city, d.state].filter(Boolean).join(', ');
       d.locations = Array.isArray(d.locations) && d.locations.length ? d.locations : (d.location ? [d.location] : []);
@@ -318,7 +365,8 @@
       d.contactVisibility = d.contactVisibility || { email: false, phone: false, toggle: false };
       d.attachments = Array.isArray(d.attachments) ? d.attachments : [];
       const descriptionMode = d.descriptionMode || (d.descriptionAI ? 'ai' : 'manual');
-      w = PL.state.jw = { editId, step: 0, completed: [false, false, false], d, companyAutofilled: !!profileCompany, descriptionMode, descriptionStatus: d.descriptionAI ? 'ready' : 'idle', descriptionFingerprint: d.descriptionAI ? descriptionInputs(d) : '', descriptionError: '', generatingContent: false, submitting: false, pinLookupStatus: d.pinCode ? 'Saved PIN code; editable.' : '', pinLookupToken: 0, pinCodeManual: !!d.pinCode };
+      d.contactVisibility = Object.assign({ email: false, phone: false, toggle: false, showContact: true }, d.contactVisibility || {});
+      w = PL.state.jw = { editId, step: 0, completed: [false, false, false], d, companyAutofilled: !!profileCompany, descriptionMode, descriptionStatus: d.descriptionAI ? 'ready' : 'idle', descriptionFingerprint: d.descriptionAI ? descriptionInputs(d) : '', descriptionError: '', generatingContent: false, submitting: false, pinLookupStatus: d.pinCode ? 'Saved PIN code; editable.' : '', pinLookupToken: 0, pinCodeManual: !!d.pinCode, stateManual: !!d.state };
       if (!d.pinCode && d.locations.length) window.setTimeout(() => {
         if (PL.state.jw === w && w.step === 0) lookupPrimaryPin(w, d.locations[0]);
       }, 0);
@@ -326,9 +374,16 @@
     const d = w.d, s = w.step, f = (n, l, x) => ui().field(Object.assign({ name: n, label: l, value: d[n] == null ? '' : d[n] }, x || {}));
     const companyOptions = db().companies.map(item => `<option value="${E(item.name)}"></option>`).join('');
     const locationSuggestions = Array.from(new Set((db().jobs || []).reduce((all, job) => all.concat(job.locations || [], job.city || job.location || ''), []).concat((db().companies || []).reduce((all, item) => all.concat(item.locations || [], item.hq || ''), [])).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const contactMethodField = (index, key, contact) => {
+      const name = `contact${index}${key}`, method = contact[key === 'PhoneType' ? 'phoneType' : 'alternatePhoneType'] || 'Call';
+      const label = key === 'PhoneType' ? 'Mobile number method' : 'Alternate mobile method';
+      const field = ui().field({ name, label, value: method, type: 'select', options: contactMethodOptions.map(option => ({ v: option.value, l: option.label })) });
+      return `<div class="jb-contact-method">${field}</div>`;
+    };
     const contactField = (index, key, label, options = {}) => {
-      const contact = d.contacts[index] || {}, map = { Name: 'name', Phone: 'phone', PhoneType: 'phoneType', AlternatePhone: 'alternatePhone', AlternatePhoneType: 'alternatePhoneType', Email: 'email' };
-      const field = ui().field(Object.assign({ name: `contact${index}${key}`, label, value: contact[map[key]] == null ? '' : contact[map[key]] }, options));
+      const contact = d.contacts[index] || {}, map = { Name: 'name', Phone: 'phone', AlternatePhone: 'alternatePhone', Email: 'email' };
+      const currentValue = contact[map[key]] == null ? '' : contact[map[key]];
+      const field = ui().field(Object.assign({ name: `contact${index}${key}`, label, value: currentValue }, options));
       if (!['Phone', 'AlternatePhone', 'Email'].includes(key)) return field;
       const visibilityKey = { Phone: 'showPhone', AlternatePhone: 'showAlternatePhone', Email: 'showEmail' }[key];
       const visibilityName = { Phone: 'ShowPhone', AlternatePhone: 'ShowAlternatePhone', Email: 'ShowEmail' }[key];
@@ -336,12 +391,12 @@
       const contactLabel = index === 0 ? 'primary contact' : `contact ${index + 1}`;
       return `<div class="jb-contact-field-with-visibility${options.full ? ' full' : ''}">${field}<label class="jb-contact-visibility"><span>Show</span><input type="checkbox" role="switch" name="contact${index}${visibilityName}" aria-label="Show ${visibilityLabel} for ${contactLabel} to candidates" ${contact[visibilityKey] ? 'checked' : ''}><span class="jb-contact-switch" aria-hidden="true"></span></label></div>`;
     };
-    const contactsMarkup = (d.contacts || []).map((contact, index) => `<div class="jb-contact-card" role="group" aria-label="${index === 0 ? 'Primary contact' : `Contact ${index + 1}`}">
-      <div class="jb-contact-card-head"><b>${index === 0 ? 'Primary Contact' : `Contact ${index + 1}`}</b>${index ? `<button type="button" class="link-btn" data-action="job-contact-remove" data-i="${index}" aria-label="Remove contact ${index + 1}">Remove</button>` : ''}</div>
+    const contactsMarkup = (d.contacts || []).map((contact, index) => `<div class="jb-contact-card${index === 0 ? ' jb-contact-card-primary' : ''}" role="group" aria-label="${index === 0 ? 'Primary contact' : `Contact ${index + 1}`}">
+      <div class="jb-contact-card-head"><div class="jb-contact-card-title"><b>${index === 0 ? 'Primary Contact' : `Contact ${index + 1}`}</b>${index === 0 ? '<small>Main hiring contact</small>' : ''}</div>${index ? `<button type="button" class="link-btn" data-action="job-contact-remove" data-i="${index}" aria-label="Remove contact ${index + 1}">Remove</button>` : ''}</div>
       <div class="jb-contact-grid">
         ${contactField(index, 'Name', 'Name', { required: !!(contact.showPhone || contact.showAlternatePhone || contact.showEmail), full: true })}
-        <div class="jb-contact-number-row">${contactField(index, 'Phone', 'Mobile Number', { type: 'tel', required: !!contact.showPhone })}${contactField(index, 'PhoneType', 'Mobile number method', { type: 'select', options: ['Call', 'WhatsApp', 'Call & WhatsApp'] })}</div>
-        <div class="jb-contact-number-row">${contactField(index, 'AlternatePhone', 'Alternate Mobile', { type: 'tel', required: !!contact.showAlternatePhone })}${contactField(index, 'AlternatePhoneType', 'Alternate mobile method', { type: 'select', options: ['Call', 'WhatsApp', 'Call & WhatsApp'] })}</div>
+        <div class="jb-contact-phone-group">${contactField(index, 'Phone', 'Mobile', { type: 'tel', required: !!contact.showPhone })}${contactMethodField(index, 'PhoneType', contact)}</div>
+        <div class="jb-contact-phone-group">${contactField(index, 'AlternatePhone', 'Alt. mobile', { type: 'tel', required: !!contact.showAlternatePhone })}${contactMethodField(index, 'AlternatePhoneType', contact)}</div>
         ${contactField(index, 'Email', 'Email address', { type: 'email', required: !!contact.showEmail, full: true })}
       </div>
     </div>`).join('');
@@ -353,32 +408,34 @@
       const specialityOptions = [{ v: '', l: 'Select speciality' }].concat(PL.SPECIALITIES.map(value => ({ v: value, l: value })));
       const categoryOptions = PL.CATEGORIES.concat(w.editId && d.department && !PL.CATEGORIES.includes(d.department) ? [d.department] : []).map(value => `<option value="${E(value)}"></option>`).join('');
       body = `<div class="jb-client-step1">
-        ${u.role !== 'admin' && d.companyId && PL.q.company(d.companyId) ? `<div class="field"><label>Company</label><div class="jb-company-value">${ui().logo(PL.q.company(d.companyId), 38)}<b>${E(PL.q.company(d.companyId).name)}</b></div></div>` : u.role !== 'admin' && w.companyAutofilled ? `<div class="field"><label>Company</label><div class="jb-company-value"><b>${E(d.companyName)}</b><small class="help">From your registered profile</small></div></div>` : `${f('companyName', 'Company', { value: d.companyName || '', required: true, attrs: 'list="jb-company-options"', autocomplete: 'organization', placeholder: 'Select or enter a company' })}<datalist id="jb-company-options">${companyOptions}</datalist>`}
+        ${u.role !== 'admin' && d.companyId && PL.q.company(d.companyId) ? `<div class="field"><label>Company</label><div class="jb-company-value">${ui().logo(PL.q.company(d.companyId), 38)}<b>${E(PL.q.company(d.companyId).name)}</b></div></div>` : u.role !== 'admin' && w.companyAutofilled ? `<div class="field"><label>Company</label><div class="jb-company-value"><b>${E(d.companyName)}</b><small class="help">From your registered profile</small></div></div>` : `${f('companyName', 'Company', { value: d.companyName || '', attrs: 'list="jb-company-options"', autocomplete: 'organization', placeholder: 'Select or enter a company' })}<datalist id="jb-company-options">${companyOptions}</datalist>`}
         ${f('department', 'Job Category', { required: true, attrs: 'list="jb-category-options"', autocomplete: 'off', placeholder: 'Search job categories' })}<datalist id="jb-category-options">${categoryOptions}</datalist>
-        ${f('divisionName', 'Division Name', { type: 'select', options: divisionOptions, required: true })}
-        ${f('specialization', 'Segment / Speciality', { type: 'select', options: specialityOptions, required: true })}
+        ${f('divisionName', 'Division Name', { type: 'select', options: divisionOptions })}
+        ${f('specialization', 'Segment / Speciality', { type: 'select', options: specialityOptions })}
         <div class="field full jb-locations-field"><label for="job-location-entry">Locations <span class="req" aria-hidden="true">*</span></label><div class="jb-location-entry"><input id="job-location-entry" name="locationEntry" list="jb-location-options" autocomplete="off" placeholder="Search or enter a city or area" aria-label="Enter a location"><button class="btn btn-secondary" type="button" data-action="job-location-add" aria-label="Add location">Add</button><datalist id="jb-location-options">${locationSuggestions.map(location => `<option value="${E(location)}"></option>`).join('')}</datalist></div><div class="jb-location-chips">${locationChips || '<span class="small muted">Add one or more locations. The first is primary.</span>'}</div><small class="help">The first location is primary. Add or remove locations as needed.</small></div>
-        ${f('pinCode', 'PIN Code', { type: 'text', placeholder: 'Enter PIN or postal code', required: true, attrs: 'maxlength="12" inputmode="text"', pattern: '[0-9A-Za-z\\- ]{3,12}', help: `<span class="jb-pin-status" role="status" aria-live="polite">${E(w.pinLookupStatus || 'For Indian locations, a postal lookup suggests an exact-match PIN; verify or edit. Enter other postal codes manually.')}</span>` })}
-        <div class="field full jb-salary-group"><label>Salary Range / CTC</label><div class="jb-salary-grid">${f('currency', 'Currency', { type: 'select', options: [{ v: 'INR', l: 'INR (₹)' }, { v: 'USD', l: 'USD ($)' }, { v: 'EUR', l: 'EUR (€)' }, { v: 'GBP', l: 'GBP (£)' }], required: true })}${f('salMin', 'Minimum Salary', { type: 'number', min: 0, attrs: 'step="any"', required: true })}${f('salMax', 'Maximum Salary', { type: 'number', min: 0, attrs: 'step="any"', required: true })}</div><small class="help">Enter salary in the selected currency. INR values are in LPA.</small></div>
+        ${f('state', 'State (Auto-filled)', { placeholder: 'Select a city to auto-fill state' })}
+        ${f('pinCode', 'PIN Code (Auto-filled / Editable)', { type: 'text', placeholder: 'Enter PIN or postal code', attrs: 'maxlength="12" inputmode="text"', pattern: '[0-9A-Za-z\\- ]{3,12}', help: `<span class="jb-pin-status" role="status" aria-live="polite">${E(w.pinLookupStatus || 'For Indian locations, a postal lookup suggests an exact-match PIN; verify or edit. Enter other postal codes manually.')}</span>` })}
+        <div class="field full jb-salary-group"><div class="jb-salary-grid">${f('currency', 'Currency', { type: 'select', options: [{ v: 'INR', l: 'INR (₹)' }, { v: 'USD', l: 'USD ($)' }, { v: 'EUR', l: 'EUR (€)' }, { v: 'GBP', l: 'GBP (£)' }] })}${f('salaryRange', 'Salary Range', { type: 'select', value: d.salaryRange || '', options: [{ v: '', l: 'Select salary range' }, { v: '0-2', l: '0–2 LPA' }, { v: '2-5', l: '2–5 LPA' }, { v: '5-7', l: '5–7 LPA' }] })}</div><small class="help">Select a salary range and currency.</small></div>
+        ${f('experienceRange', 'Experience', { type: 'select', options: [{ v: '', l: 'Select experience' }, { v: '1-3', l: '1–3 Years' }, { v: '5-7', l: '5–7 Years' }] })}
         ${f('type', 'Employment Type', { type: 'select', options: PL.JOB_TYPES, required: true })}
         ${f('workMode', 'Workplace Type', { type: 'select', options: workModes, required: true })}
         <div class="jb-step1-ai"><p>Choose how to create the job description on the next step.</p><div class="jb-step1-ai-actions"><button class="btn" type="button" data-action="job-start" data-mode="ai" ${!stepOneComplete(w) || w.generatingContent ? 'disabled' : ''}>${I('zap', 18)} Write Job with AI</button>${u.role === 'admin' ? `<button class="btn btn-secondary" type="button" data-action="job-start" data-mode="manual" ${!stepOneComplete(w) || w.generatingContent ? 'disabled' : ''}>${I('edit', 16)} Write Your Own</button>` : ''}</div><small class="small muted">AI drafts use this demo's local generation logic, not a production AI service.</small></div>
       </div>${w.generatingContent ? '<p class="jb-ai-status" role="status">Preparing your job title and description…</p>' : w.descriptionStatus === 'error' ? `<p class="err jb-ai-error" role="alert">${E(w.descriptionError || 'Could not generate the initial description. Please retry.')}</p>` : ''}`;
     }
     if (s === 1) body = `<div class="jb-description-step">
-      <section class="jb-posting-section"><h3>Job Title</h3>${f('title', 'Edit suggested job title', { required: true })}<p class="small muted">Suggested from company, job category, and location. You can edit it.</p></section>
+      <section class="jb-posting-section"><div class="jb-title-heading"><h3>Job Title</h3><button class="btn btn-secondary btn-sm jb-title-ai" type="button" data-action="job-title-ai">${I('zap', 15)} Write with AI</button></div>${f('title', 'Edit suggested job title', { required: true })}<p class="small muted">Suggested from company, job category, and location. You can edit it or request another local demo suggestion.</p></section>
       <section class="jb-posting-section"><h3>Job Description</h3>
-        <div class="row jb-description-actions"><button class="btn" type="button" data-action="job-description-draft" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${I('zap', 18)} Draft with AI</button>
-        <button class="btn btn-secondary" type="button" data-action="job-description-rewrite" ${w.descriptionStatus === 'loading' || !(d.description || '').trim() ? 'disabled' : ''}>${I('refresh', 16)} Rewrite with AI</button>
-        ${u.role === 'admin' ? `<button class="btn ${w.descriptionMode === 'manual' ? '' : 'btn-secondary'}" type="button" data-action="job-description-mode" data-mode="manual">${I('edit', 16)} Write Your Own</button>` : ''}</div>
-        <p class="small muted">Draft starts from Step 1 details. Rewrite polishes the text already in the box.</p>
+        <p class="small muted">Write a clear description. Draft starts from Step 1 details; Rewrite polishes the text in the editor.</p>
         ${w.descriptionStatus === 'loading' ? `<p class="jb-ai-status" role="status">${I('zap', 16)} Generating job description…</p>` : ''}
         ${w.descriptionStatus === 'error' ? `<p class="err jb-ai-error" role="alert">${E(w.descriptionError || 'Description generation failed. Please retry.')}</p>` : ''}
-        <textarea class="jb-admin-description" name="description" maxlength="2000" minlength="30" rows="10" required aria-label="Job description" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${E(d.description || '')}</textarea>
-        <div class="jb-ai-count"><span>${(d.description || '').length} / 2000</span><span>${d.descriptionAI ? 'Generated in this demo · editable' : 'Your description · editable'}</span></div>
+        <div class="jb-description-editor"><textarea class="jb-admin-description" name="description" maxlength="2000" minlength="30" rows="10" required aria-label="Job description" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${E(d.description || '')}</textarea>
+          <div class="jb-description-editor-foot"><div class="jb-ai-count"><span>${(d.description || '').length} / 2000</span><span>${d.descriptionAI ? 'Generated in this demo · editable' : 'Your description · editable'}</span></div>
+            <div class="row jb-description-actions"><button class="btn" type="button" data-action="job-description-draft" ${w.descriptionStatus === 'loading' ? 'disabled' : ''}>${I('zap', 18)} Draft with AI</button>
+            <button class="btn btn-secondary" type="button" data-action="job-description-rewrite" ${w.descriptionStatus === 'loading' || !(d.description || '').trim() ? 'disabled' : ''}>${I('refresh', 16)} Rewrite with AI</button>
+            ${u.role === 'admin' ? `<button class="btn btn-secondary" type="button" data-action="job-description-mode" data-mode="manual">${I('edit', 16)} Write Your Own</button>` : ''}</div></div></div>
         <p class="small muted">AI options use local demo logic and are not connected to a production AI service. Contact details are excluded.</p>
       </section>
-      <section class="jb-posting-section jb-contact-step"><h3>Contact Details</h3><p class="small muted">Add a name, mobile numbers, and email. Use the Show switches to choose which details candidates can see.</p>
+      <section class="jb-posting-section jb-contact-step"><div class="jb-contact-section-head"><div><h3>Contact Details</h3><p class="small muted">Choose which contact details candidates can see.</p></div><label class="jb-show-contact-toggle"><input type="checkbox" name="showContactDetails" ${d.contactVisibility.showContact !== false ? 'checked' : ''}><span>Show contact details to candidates</span></label></div>
         ${contactsMarkup}<button type="button" class="btn btn-secondary jb-add-contact" data-action="job-contact-add">${I('plus', 16)} Add More Contact</button>
       </section></div>`;
     if (s === 2) {
@@ -386,14 +443,15 @@
       const adminOnly = u.role === 'admin';
       body = `${err ? ui().notice(E(err), 'err') : ''}
         <div class="jb-verification-info">${I('shield', 26)}<div><b>Preview &amp; Publish</b><small>Review the candidate-facing job and choose how it should be published.</small></div></div>
-        ${preview(d, u)}
         <div class="jb-publish-option"><div class="jb-publish-option-head">${I('calendar', 26)}<div><b>Schedule a Job</b><small>Choose when to publish your job post.</small></div></div>
           ${adminOnly ? `<div class="jb-publish-radios"><label class="jb-select-row"><input type="radio" name="publishMode" value="immediate" ${d.scheduleEnabled ? '' : 'checked'}> <span>Publish Immediately</span></label><label class="jb-select-row"><input type="radio" name="publishMode" value="scheduled" ${d.scheduleEnabled ? 'checked' : ''}> <span>Schedule Job</span></label></div>${d.scheduleEnabled ? `<div class="jb-schedule-fields jb-schedule-range"><label><span>Min Date</span><input type="date" name="scheduleMinDate" value="${E(d.scheduleMinDate || '')}" min="${F().today()}" required aria-label="Min Date"></label><label><span>Max Date</span><input type="date" name="scheduleMaxDate" value="${E(d.scheduleMaxDate || '')}" min="${E(d.scheduleMinDate || F().today())}" required aria-label="Max Date"></label></div>` : ''}` : '<label class="jb-select-row"><input type="radio" checked disabled> <span>Publish Immediately</span></label>'}
         </div>
-        <section class="jb-upload-option"><div class="jb-publish-option-head">${I('paperclip', 26)}<div><b>Attach PDF/JPG documents <span class="muted">(Optional)</span></b><small>Choose up to 3 files, 250 KB each. Stored in this browser demo only.</small></div></div><div class="jb-dropzone"><input type="file" name="jobAttachmentFile" accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg" multiple aria-label="Attach PDF or JPG documents"></div>${d.attachments.length ? `<ul class="jb-attachment-list">${d.attachments.map((file, index) => `<li><a href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${E(file.name)}</a><button type="button" class="link-btn" data-action="job-attachment-remove" data-i="${index}" aria-label="Remove ${E(file.name)}">Remove</button></li>`).join('')}</ul>` : ''}</section>
-        <section class="jb-link-option"><h3>Add External Job Link <span class="muted">(Optional)</span></h3>${f('externalApplyUrl', 'Application URL', { type: 'url', placeholder: 'https://example.com/apply' })}</section>
-        <section class="jb-link-option"><h3>Customized Job Link <span class="muted">(Optional)</span></h3>        ${f('customJobSlug', 'Custom link name', { placeholder: 'medical-representative-pune', pattern: '[a-z0-9]+(?:-[a-z0-9]+)*', attrs: 'maxlength="50"', help: d.customJobSlug ? `Candidate link: #/job/${E(d.customJobSlug)}` : 'Use lowercase letters, numbers, and hyphens.' })}</section>
+        <section class="jb-upload-option"><div class="jb-publish-option-head">${I('paperclip', 26)}<div><b>Attach File <span class="muted">(Optional)</span></b><small>Job poster or company brochure. Up to 3 PDF/JPG/PNG files, 250 KB each in this browser demo.</small></div></div><label class="jb-dropzone"><span>${I('upload', 28)}<b>Drag &amp; drop a file or choose file</b><small>Supported formats: JPG, JPEG, PNG, PDF (max 250 KB each)</small></span><input type="file" name="jobAttachmentFile" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple aria-label="Attach PDF, JPG, or PNG documents"></label>${d.attachments.length ? `<ul class="jb-attachment-list">${d.attachments.map((file, index) => `<li><a href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${E(file.name)}</a><button type="button" class="link-btn" data-action="job-attachment-remove" data-i="${index}" aria-label="Remove ${E(file.name)}">Remove</button></li>`).join('')}</ul>` : ''}</section>
+        <section class="jb-link-option"><h3>Customise Job Link <span class="muted">(Optional)</span></h3><p class="small muted">Create a custom URL for this job post.</p>${f('customJobSlug', 'Custom link name', { placeholder: 'e.g. medical-representative-mumbai', pattern: '[a-z0-9]+(?:-[a-z0-9]+)*', attrs: 'maxlength="50"', help: d.customJobSlug ? `Candidate link: #/job/${E(d.customJobSlug)}` : 'Use lowercase letters, numbers, and hyphens.' })}${f('externalApplyUrl', 'Application URL (Optional)', { type: 'url', placeholder: 'https://example.com/apply' })}</section>
+        <section class="jb-feature-card"><div class="jb-feature-head">${I('star', 26)}<div><b>Feature This Job <span class="jb-premium">Premium</span></b><small>Get more visibility with a featured listing.</small></div></div><label class="jb-feature-toggle"><span>Enable Featured Job</span><input type="checkbox" name="featured" ${d.featured ? 'checked' : ''}></label></section>
+        <section class="jb-feature-card"><div class="jb-feature-head">${I('users', 26)}<div><b>Free Vacancy to Apply</b><small>Allow candidates to apply without a subscription.</small></div></div><label class="jb-feature-toggle"><span>Enable Free Apply</span><input type="checkbox" name="freeApply" ${d.freeApply ? 'checked' : ''}></label></section>
         ${adminOnly ? `<section class="jb-feature-card"><div class="jb-feature-head">${I('star', 26)}<div><b>Paid Job Configuration</b><small>Admin publishing control.</small></div></div><label class="jb-feature-toggle"><span>Paid Job</span><input type="checkbox" name="paidJob" ${d.paidJob ? 'checked' : ''}></label>${d.paidJob ? f('paidAmount', 'Paid job amount (₹)', { type: 'number', min: 1, required: true }) : ''}</section>` : ''}
+        <details class="jb-preview-disclosure"><summary>Preview candidate-facing job details</summary>${preview(d, u)}</details>
         ${db().settings.moderation && u.role !== 'admin' ? ui().notice('Your job will be reviewed by our team before going live on PharmaLinkIn.', '') : ''}`;
     }
     const stepper = PL.onb.stepper(JOB_STEPS, s, true);
@@ -439,10 +497,6 @@
     if (!ui().validate(form)) return;
     if (!PL.CATEGORIES.includes(w.d.department) && !w.editId) {
       ui().setError(form, 'department', 'Choose a job category from the suggestions.');
-      return;
-    }
-    if (+w.d.salMax < +w.d.salMin) {
-      ui().setError(form, 'salMax', 'Maximum salary must be at least minimum salary.');
       return;
     }
     if (!ready(w, 0)) { ui().toast('Complete all required Step 1 fields to continue.', 'err'); return; }
@@ -520,8 +574,7 @@
   });
   function persistJob(u, status) {
     const w = PL.state.jw, d = w.d, c = d.companyId ? PL.q.company(d.companyId) : postingCompany(u, d);
-    if (!c) { ui().toast('Select a valid company before publishing.', 'err'); return null; }
-    d.companyId = c.id; d.recruiterId = u.id; d.authorRole = u.role;
+    d.companyId = c ? c.id : ''; d.recruiterId = u.id; d.authorRole = u.role;
     d.vacancies = +d.vacancies || 1; d.expMin = d.expMin === '' ? '' : (+d.expMin || 0); d.expMax = d.expMax === '' ? '' : (+d.expMax || 0); d.salMin = +d.salMin || 0; d.salMax = +d.salMax || 0; d.paidAmount = d.paidJob ? +d.paidAmount : 0;
     d.location = d.location || d.locations && d.locations[0] || [d.city, d.state].filter(Boolean).join(', ');
     d.locations = d.locations && d.locations.length ? d.locations : (d.location ? [d.location] : []);
@@ -556,6 +609,13 @@
     const form = document.querySelector('form[data-form="job-step"]');
     startJobStepOne(data.mode, form);
   });
+  PL.act('job-title-ai', () => {
+    const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]');
+    if (!w || w.step !== 1) return;
+    if (form) collectJobForm(form);
+    w.d.title = suggestedTitleWithAI(w.d);
+    PL.rerender();
+  });
   PL.act('job-location-add', () => {
     const w = PL.state.jw, form = document.querySelector('form[data-form="job-step"]');
     if (!w || w.step !== 0 || !form) return;
@@ -571,6 +631,7 @@
     w.d.location = w.d.locations[0];
     w.d.city = w.d.location;
     w.detailsChanged = true;
+    if (first) { w.d.state = ''; w.stateManual = false; }
     if (w.d.descriptionAI) w.descriptionFingerprint = '';
     if (first) {
       w.pinLookupToken++;
@@ -595,6 +656,8 @@
       w.pinLookupToken++;
       w.d.pinCode = '';
       w.pinCodeManual = false;
+      w.d.state = '';
+      w.stateManual = false;
       w.pinLookupStatus = '';
     }
     PL.rerender();
@@ -672,6 +735,32 @@
     const button = form && form.querySelector('[data-action="job-location-add"]');
     if (button) button.click();
   });
+  document.addEventListener('dragover', e => {
+    const zone = e.target.closest && e.target.closest('.jb-dropzone');
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.add('is-dragging');
+  });
+  document.addEventListener('dragleave', e => {
+    const zone = e.target.closest && e.target.closest('.jb-dropzone');
+    if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('is-dragging');
+  });
+  document.addEventListener('drop', e => {
+    const zone = e.target.closest && e.target.closest('.jb-dropzone');
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.remove('is-dragging');
+    const input = zone.querySelector('input[type="file"]');
+    if (!input || !e.dataTransfer || !e.dataTransfer.files.length) return;
+    try {
+      const transfer = new DataTransfer();
+      Array.from(e.dataTransfer.files).forEach(file => transfer.items.add(file));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (error) {
+      ui().toast('Could not read the dropped files. Please choose them using the file picker.', 'err');
+    }
+  });
   document.addEventListener('input', e => {
     const form = e.target.closest && e.target.closest('form[data-form="job-step"]');
     if (!form) return;
@@ -685,6 +774,7 @@
         if (help) help.textContent = w.pinLookupStatus;
       }
     }
+    if (e.target.name === 'state' && PL.state.jw) PL.state.jw.stateManual = true;
     if (e.target.name === 'description') {
       const w = PL.state.jw;
       if (w) {
@@ -709,13 +799,13 @@
     collectJobForm(form);
     const files = Array.from(input.files || []);
     if (w.d.attachments.length + files.length > 3) { ui().toast('You can attach up to 3 files.', 'err'); input.value = ''; return; }
-    const supported = file => /^(application\/pdf|image\/jpeg)$/.test(file.type) || /\.(pdf|jpe?g)$/i.test(file.name);
-    if (files.some(file => !supported(file))) { ui().toast('Only PDF and JPG/JPEG documents are supported.', 'err'); input.value = ''; return; }
+    const supported = file => /^(application\/pdf|image\/jpeg|image\/png)$/.test(file.type) || /\.(pdf|jpe?g|png)$/i.test(file.name);
+    if (files.some(file => !supported(file))) { ui().toast('Only PDF, JPG/JPEG, and PNG documents are supported.', 'err'); input.value = ''; return; }
     if (files.some(file => file.size > 250 * 1024)) { ui().toast('Each attachment must be 250 KB or smaller in this browser demo.', 'err'); input.value = ''; return; }
     try {
       const added = await Promise.all(files.map(file => new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve({ name: file.name, type: file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/jpeg'), data: reader.result });
+        reader.onload = () => resolve({ name: file.name, type: file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg'), data: reader.result });
         reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
         reader.readAsDataURL(file);
       })));
@@ -730,7 +820,7 @@
     const form = e.target.closest && e.target.closest('form[data-form="job-step"]');
     if (!form) return;
     collectJobForm(form);
-    if (['publishMode', 'paidJob', 'scheduleMinDate'].includes(e.target.name)) { PL.rerender(); return; }
+    if (['publishMode', 'paidJob', 'featured', 'freeApply', 'salaryRange', 'experienceRange', 'scheduleMinDate'].includes(e.target.name)) { PL.rerender(); return; }
     setNextButton(form);
   });
 

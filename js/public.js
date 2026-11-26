@@ -14,15 +14,16 @@
     PL.store.save(); ui().toast('Report submitted. Thank you.');
   };
   const jobUrl = (j, base) => `#${base}/jobs/${j.id}`;
-  const salary = j => (j.salMin ? F().lpa(j.salMin, j.salMax) : 'Not disclosed');
+  const salary = j => j.salaryRange && (j.currency || 'INR') === 'INR' ? `₹${j.salaryRange.replace('-', '–')} LPA` : j.salMin === '' || j.salMin == null ? 'Not disclosed' : (j.currency || 'INR') === 'INR' ? F().lpa(j.salMin, j.salMax) : `${j.currency} ${j.salMin}–${j.salMax || j.salMin}`;
   const exp = j => j.expMin === '' || j.expMax === '' || j.expMin == null || j.expMax == null ? 'Experience not specified' : `${j.expMin}–${j.expMax} yrs`;
+  const companyForJob = j => PL.q.company(j.companyId) || { id: '', name: j.companyName || 'Confidential Employer', industry: '' };
 
   const cmp = (PL.cmp = {});
   cmp.jobCard = (j, o = {}) => {
-    const c = PL.q.company(j.companyId), u = PL.auth.user(), base = o.base || '';
+    const c = companyForJob(j), u = PL.auth.user(), base = o.base || '';
     const saved = u && u.role === 'candidate' && PL.q.isSaved(u.id, j.id);
     const applied = u && PL.q.appFor(u.id, j.id);
-    return `<article class="card card-hover job-card ${j.featured ? 'sponsored-card' : ''}"><div class="row nowrap start">${ui().logo(c, 46)}<div class="grow"><h3><a href="${jobUrl(j, base)}">${E(j.title)}</a></h3><div class="small"><a href="#/companies/${c.id}" style="color:var(--text-2)">${E(c.name)}</a> ${PL.q.verified(c) ? `<span class="verified" title="Verified employer">${I('shield', 14)}</span>` : ''}</div></div>
+    return `<article class="card card-hover job-card ${j.featured ? 'sponsored-card' : ''}"><div class="row nowrap start">${ui().logo(c, 46)}<div class="grow"><h3><a href="${jobUrl(j, base)}">${E(j.title)}</a></h3><div class="small">${c.id ? `<a href="#/companies/${c.id}" style="color:var(--text-2)">${E(c.name)}</a> ${PL.q.verified(c) ? `<span class="verified" title="Verified employer">${I('shield', 14)}</span>` : ''}` : E(c.name)}</div></div>
       <div class="row nowrap" style="gap:6px">${j.featured ? '<span class="badge b-amber">Featured</span>' : ''}${u && u.role === 'candidate' ? `<button class="icon-btn" data-action="save-job" data-id="${j.id}" aria-pressed="${!!saved}" aria-label="${saved ? 'Unsave' : 'Save'} ${E(j.title)}" style="${saved ? 'color:var(--primary)' : ''}">${I('bookmark')}</button>` : ''}</div></div>
       <ul class="meta"><li>${I('pin', 14)}${E(j.location)}</li><li>${I('briefcase', 14)}${exp(j)}</li><li>${I('rupee', 14)}${salary(j)}</li><li>${I('clock', 14)}${E(j.type)} · ${E(j.workMode)}</li></ul>
       <div class="row between"><div class="chips"><span class="tag">${E(j.department)}</span><span class="tag">${E(j.qualification)}</span></div><div class="row"><span class="xs muted">${F().ago(j.createdAt)}</span>${applied ? ui().badge(applied.status) : `<a class="btn btn-sm btn-secondary" href="${jobUrl(j, base)}">View details</a>`}</div></div></article>`;
@@ -95,7 +96,7 @@
       const v = PL.vf('jobs', { q: '', cat: '', loc: '', qual: '', type: '', mode: '', exp: '', sort: 'new', page: 1 });
       const lower = s => String(s || '').toLowerCase(), qq = lower(v.q), ll = lower(v.loc);
       let list = PL.q.publicJobs().filter(j => {
-        const c = PL.q.company(j.companyId);
+        const c = companyForJob(j);
         if (qq && !lower(j.title + ' ' + j.department + ' ' + c.name + ' ' + j.skills.join(' ')).includes(qq)) return false;
         if (ll && !lower(j.location + ' ' + j.locations.join(' ')).includes(ll)) return false;
         if (v.cat && j.department !== v.cat) return false;
@@ -126,14 +127,14 @@
       const j = PL.q.job(ctx.params.id) || PL.q.jobBySlug(ctx.params.id), u = PL.auth.user();
       const owner = u && u.role === 'recruiter' && j && u.companyId === j.companyId, admin = u && u.role === 'admin';
       if (!j || (j.status !== 'Published' && !owner && !admin)) return `<div class="container section">${ui().empty('briefcase', 'Job not available', 'This job may have been closed, expired or removed.', '<a class="btn" href="#' + base + '/jobs">Browse jobs</a>')}</div>`;
-      const c = PL.q.company(j.companyId), applied = u && PL.q.appFor(u.id, j.id), saved = u && PL.q.isSaved(u.id, j.id);
+      const c = Object.assign({ description: '' }, companyForJob(j)), applied = u && PL.q.appFor(u.id, j.id), saved = u && PL.q.isSaved(u.id, j.id);
       const similar = PL.q.publicJobs().filter(x => x.id !== j.id && (x.department === j.department || x.companyId === j.companyId)).slice(0, 3);
       const open = j.status === 'Published' && new Date(j.closingDate) >= new Date(F().today());
       j.views = j.views || 0; if (ctx.fresh && !owner) { j.views++; PL.store.save(); }
       const externalApplyUrl = /^https?:\/\//i.test(j.externalApplyUrl || '') ? j.externalApplyUrl : '';
       const apply = !open ? `<button class="btn" disabled>Applications closed</button>` : applied && !externalApplyUrl ? `<a class="btn btn-secondary" href="#/app/applications/${applied.id}">${I('checkc', 16)} Applied – ${E(applied.status)}</a>` : externalApplyUrl ? `<a class="btn" href="${E(externalApplyUrl)}" target="_blank" rel="noopener noreferrer">Apply now ${I('external', 14)}</a>` : `<button class="btn" data-action="apply-job" data-id="${j.id}">Apply now</button>`;
       const visibleContacts = PL.q.jobContacts(j).map(contact => {
-        const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}">${I('phone', 15)} Call</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
+        const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}" aria-label="Call ${E(label.toLowerCase())}" title="Call">${I('phone', 15)}</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
         const phone = contact.showPhone && contact.phone ? phoneMarkup(contact.phone, contact.phoneType, 'Mobile') : '';
         const alternatePhone = contact.showAlternatePhone && contact.alternatePhone ? phoneMarkup(contact.alternatePhone, contact.alternatePhoneType, 'Alternate mobile') : '';
         const email = contact.showEmail && contact.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${E(contact.email)}">${I('mail', 15)} Email ${E(contact.email)}</a>` : '';
@@ -142,12 +143,12 @@
       const attachments = (j.attachments || []).map(file => `<a class="jb-job-attachment" href="${E(file.data)}" target="_blank" rel="noopener noreferrer">${I('file', 15)} ${E(file.name)}</a>`).join('');
       const html = `<div class="${base ? '' : 'container section'}"><a href="#${base}/jobs" class="small">${I('left', 14)} Back to jobs</a>
         <div class="grid mt-s" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start">
-        <div class="stack"><div class="card pad-lg"><div class="row nowrap start">${ui().logo(c, 60)}<div class="grow"><h1 style="font-size:1.5rem;margin:0">${E(j.title)}</h1>${j.freeApply ? '<span class="badge b-green">Free to apply</span>' : ''}<a href="#/companies/${c.id}">${E(c.name)}</a> ${PL.q.verified(c) ? ui().badge('Verified', '') : '<span class="badge b-amber">Verification pending</span>'}${j.status !== 'Published' ? ' ' + ui().badge(j.status) : ''}</div></div>
+        <div class="stack"><div class="card pad-lg"><div class="row nowrap start">${ui().logo(c, 60)}<div class="grow"><h1 style="font-size:1.5rem;margin:0">${E(j.title)}</h1>${j.freeApply ? '<span class="badge b-green">Free to apply</span>' : ''}${c.id ? `<a href="#/companies/${c.id}">${E(c.name)}</a> ${PL.q.verified(c) ? ui().badge('Verified', '') : '<span class="badge b-amber">Verification pending</span>'}` : `<span>${E(c.name)}</span>`}${j.status !== 'Published' ? ' ' + ui().badge(j.status) : ''}</div></div>
           <ul class="meta mt"><li>${I('pin', 14)}${E(j.location)}</li><li>${I('briefcase', 14)}${exp(j)}</li><li>${I('rupee', 14)}${salary(j)}</li><li>${I('clock', 14)}${E(j.type)} · ${E(j.workMode)}</li><li>${I('calendar', 14)}Apply by ${F().date(j.closingDate)}</li></ul>
           <div class="row mt">${apply}${u && u.role === 'candidate' ? `<button class="btn btn-secondary" data-action="save-job" data-id="${j.id}" aria-pressed="${!!saved}">${I('bookmark', 16)} ${saved ? 'Saved' : 'Save'}</button>` : ''}<button class="btn btn-ghost" data-action="share" data-path="${base}/jobs/${j.id}">${I('share', 16)} Share</button><button class="btn btn-ghost" data-action="report" data-type="job" data-id="${j.id}">${I('flag', 16)} Report</button></div></div>
           <div class="card pad-lg"><h3>About the role</h3><p style="white-space:pre-line">${E(j.description)}</p><h3>Responsibilities</h3>${li(j.responsibilities)}<h3>Required skills</h3><div class="chips">${(j.skills || []).map(s => `<span class="tag">${E(s)}</span>`).join('')}</div><h3 class="mt">Preferred</h3><p>${E(j.preferred || '')}</p><h3>Benefits</h3>${li(j.benefits || [])}${j.incentives ? `<p><b>Incentives:</b> ${E(j.incentives)}</p>` : ''}${visibleContacts ? `<section class="jb-job-contacts"><h3>Contact details</h3>${visibleContacts}</section>` : ''}${attachments ? `<h3>Attachments</h3><div class="jb-attachment-list">${attachments}</div>` : ''}</div></div>
         <aside class="stack"><div class="card pad"><h3>Job overview</h3><dl class="kv"><dt>Function</dt><dd>${E(j.department)}</dd>${j.specialization ? `<dt>Segment</dt><dd>${E(j.specialization)}</dd>` : ''}<dt>Qualification</dt><dd>${E(j.qualification)}</dd><dt>Vacancies</dt><dd>${j.vacancies}</dd><dt>Travel</dt><dd>${E(j.travel)}</dd><dt>Posted</dt><dd>${F().date(j.createdAt)}</dd></dl></div>
-        <div class="card pad"><h3>About ${E(c.name)}</h3><p class="small muted">${E(c.description)}</p><a class="btn btn-secondary btn-sm" href="#/companies/${c.id}">View company</a></div>
+        ${c.id ? `<div class="card pad"><h3>About ${E(c.name)}</h3><p class="small muted">${E(c.description)}</p><a class="btn btn-secondary btn-sm" href="#/companies/${c.id}">View company</a></div>` : ''}
         ${PL.ads ? PL.ads.slot('Sidebar') : ''}</aside></div>
         ${similar.length ? `<h2 class="mt">Similar jobs</h2><div class="grid g3">${similar.map(x => cmp.jobCard(x, { base })).join('')}</div>` : ''}</div>`;
       return html;

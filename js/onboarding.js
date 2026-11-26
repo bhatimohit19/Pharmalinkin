@@ -463,7 +463,7 @@
     const featuredIds = new Set(jobs.map(j => j.id));
     const recentJobs = allJobs.filter(j => !featuredIds.has(j.id)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 4);
     const categories = PL.CATEGORIES.slice(0, 8);
-    const articles = (PL.store.s.news || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+    const articles = (PL.store.s.news || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
     const socialLinks = ((PL.store.s.settings && PL.store.s.settings.adminSocialLinks) || []).slice();
     const socialPreview = [socialLinks.find(link => /whatsapp/i.test((link.platform || '') + ' ' + (link.url || ''))), ...socialLinks.filter(link => !/whatsapp/i.test((link.platform || '') + ' ' + (link.url || '')))].filter(Boolean).slice(0, 4);
     const jobCard = (j, isFeatured) => {
@@ -479,8 +479,27 @@
       let pos = t.scrollLeft;
       const tick = () => { if (!document.body.contains(t)) return; if (!hover && !matchMedia('(prefers-reduced-motion: reduce)').matches) { if (Math.abs(t.scrollLeft - pos) > 2) pos = t.scrollLeft; pos += 0.4; if (pos >= t.scrollWidth / 2) pos = 0; t.scrollLeft = pos; } else pos = t.scrollLeft; requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
+      const heroTrack = document.getElementById('home-mobile-hero-track'), dots = Array.from(document.querySelectorAll('.home-mobile-hero-dots button'));
+      if (heroTrack && dots.length) {
+        const updateDots = () => {
+          if (!heroTrack.clientWidth) return;
+          const trackLeft = heroTrack.getBoundingClientRect().left;
+          const current = Array.from(heroTrack.children).reduce((nearest, slide, index, slides) => {
+            const start = slide.getBoundingClientRect().left - trackLeft + heroTrack.scrollLeft;
+            const bestStart = slides[nearest].getBoundingClientRect().left - trackLeft + heroTrack.scrollLeft;
+            return Math.abs(start - heroTrack.scrollLeft) < Math.abs(bestStart - heroTrack.scrollLeft) ? index : nearest;
+          }, 0);
+          dots.forEach((dot, index) => {
+            if (index === current) dot.setAttribute('aria-current', 'true');
+            else dot.removeAttribute('aria-current');
+          });
+        };
+        heroTrack.addEventListener('scroll', () => requestAnimationFrame(updateDots), { passive: true });
+        updateDots();
+      }
     };
-        const html = `<div class="home-page ${u && u.role === 'candidate' ? 'home-page-candidate' : ''}">
+        const html = `<div class="home-page">
+          <div class="home-desktop-home ${u && u.role === 'candidate' ? 'home-page-candidate' : ''}">
           <section class="home-hero"><div class="home-hero-inner">
             <div class="home-brand-line"><span class="home-brand-mark">${I('pill', 22)}</span><span>Pharma jobs. <b>One trusted place.</b></span><span class="home-trust-tag">${I('shield', 14)} Trusted by pharma professionals</span></div>
             <div class="home-hero-copy"><span class="home-eyebrow">YOUR PHARMA CAREER STARTS HERE</span><h1>Find the right role.<br><span>Build your future.</span></h1><p>Explore opportunities across pharma sales, research, quality, manufacturing and more.</p>
@@ -496,13 +515,56 @@
             <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Recently added</span><h2>Latest pharma jobs</h2></div><a href="#/job-results?browse=1&sort=date">See all jobs ${I('right', 15)}</a></div><div class="home-jobs-grid">${recentJobs.map(j => jobCard(j, false)).join('')}</div></section>
             ${PL.ads ? `<div class="home-ad-slot">${PL.ads.homeBand()}</div>` : ''}
             <section class="home-resume-promo"><span class="home-resume-icon">${I('file', 26)}</span><div><span class="home-section-kicker">Make your next move</span><h2>Get noticed by the right pharma employers</h2><p>Create your professional profile and keep your experience, education and skills together.</p></div><a class="btn" href="${u && u.role === 'candidate' ? '#/app/profile' : '#/register?role=candidate'}">${u && u.role === 'candidate' ? 'View my profile' : 'Create my profile'} ${I('right', 15)}</a></section>
-            <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Career insights</span><h2>Latest pharma articles</h2></div><a href="#/news">More articles ${I('right', 15)}</a></div><div class="home-article-grid">${articles.map(article => `<a class="home-article" href="#/news/${E(article.id)}"><img src="${ui().art(article.id, article.category, 600, 280)}" alt="" loading="lazy"><span class="home-article-copy"><small>${E(article.category)} · ${PL.ui.fmt.date(article.createdAt)}</small><b>${E(article.title)}</b><span>${E(article.summary)}</span></span></a>`).join('')}</div></section>
+            <section class="home-section"><div class="home-section-head"><div><span class="home-section-kicker">Career insights</span><h2>Latest pharma articles</h2></div><a href="#/news">More articles ${I('right', 15)}</a></div><div class="home-article-grid">${articles.slice(0, 3).map(article => `<a class="home-article" href="#/news/${E(article.id)}"><img src="${ui().art(article.id, article.category, 600, 280)}" alt="" loading="lazy"><span class="home-article-copy"><small>${E(article.category)} · ${PL.ui.fmt.date(article.createdAt)}</small><b>${E(article.title)}</b><span>${E(article.summary)}</span></span></a>`).join('')}</div></section>
             <section class="home-audience"><article><span>${I('user', 22)}</span><div><b>Looking for your next opportunity?</b><small>Build your profile and explore roles made for pharma professionals.</small></div><a href="#/register?role=candidate">Join as a candidate ${I('right', 14)}</a></article><article><span>${I('building', 22)}</span><div><b>Hiring pharma talent?</b><small>Connect with professionals and grow your team.</small></div><a href="#/register?role=recruiter">Join as an employer ${I('right', 14)}</a></article></section>
             ${socialLinks.length ? `<section class="home-section home-social"><div class="home-section-head"><div><span class="home-section-kicker">Stay connected</span><h2>Follow PharmaLinkIn</h2></div><a href="#/social">All social links ${I('right', 15)}</a></div><div class="home-social-links">${socialPreview.map(link => `<a href="${E(link.url)}" target="_blank" rel="noopener noreferrer">${socialIcon(link)}<span>${E(link.name || link.label || 'Social link')}</span><small>${E(link.platform || 'Social')}</small></a>`).join('')}</div></section>` : ''}
           </div>
           ${u && u.role === 'candidate' && PL.mobileNav ? PL.mobileNav('candidate', '/app/profile') : ''}
+          </div>
+          <div class="home-mobile-page">
+            <section class="home-mobile-hero" aria-label="Career highlights">
+              <div class="home-mobile-hero-head"><span>Pharma careers, connected</span><div class="home-mobile-carousel-controls"><button type="button" data-action="home-carousel" data-target="home-mobile-hero-track" data-dir="-1" aria-label="Previous highlight">${I('left', 16)}</button><button type="button" data-action="home-carousel" data-target="home-mobile-hero-track" data-dir="1" aria-label="Next highlight">${I('right', 16)}</button></div></div>
+              <div class="home-mobile-hero-track" id="home-mobile-hero-track">
+                ${[['Find your next pharma role', 'Discover opportunities made for your experience.', 'Explore jobs', '/job-results?browse=1'], ['Build a profile employers notice', 'Showcase your skills and career journey.', 'Create profile', '/register?role=candidate'], ['Make your next move', 'Find trusted roles across the life sciences.', 'Browse opportunities', '/job-results?browse=1']].map((slide, index) => `<article class="home-mobile-hero-slide home-mobile-hero-slide-${index + 1}"><div><span class="home-mobile-slide-kicker">PHARMALINKIN</span><h1>${slide[0]}</h1><p>${slide[1]}</p><a href="#${slide[3]}">${slide[2]} ${I('right', 14)}</a></div><img src="assets/demo-candidate-avatar.svg" alt="" aria-hidden="true"></article>`).join('')}
+              </div>
+              <div class="home-mobile-hero-dots" role="group" aria-label="Choose a career highlight">${[['First highlight', 0], ['Second highlight', 1], ['Third highlight', 2]].map(item => `<button type="button" data-action="home-hero-go" data-index="${item[1]}" aria-label="${item[0]}" ${item[1] === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div>
+            </section>
+            <div class="home-mobile-content">
+              <section class="home-mobile-section">
+                <div class="home-mobile-section-head"><div><span>Handpicked for you</span><h2>Featured jobs</h2></div><a href="#/job-results?browse=1">See all ${I('right', 14)}</a><div class="home-mobile-carousel-controls"><button type="button" data-action="home-carousel" data-target="home-mobile-featured-track" data-dir="-1" aria-label="Previous featured jobs">${I('left', 15)}</button><button type="button" data-action="home-carousel" data-target="home-mobile-featured-track" data-dir="1" aria-label="Next featured jobs">${I('right', 15)}</button></div></div>
+                <div class="home-mobile-job-track" id="home-mobile-featured-track">${jobs.map(j => jobCard(j, !!j.featured)).join('')}</div>
+              </section>
+              <section class="home-mobile-section home-mobile-categories">
+                <div class="home-mobile-section-head"><div><span>Explore opportunities</span><h2>Browse categories</h2></div><a href="#/job-results?browse=1">All jobs ${I('right', 14)}</a></div>
+                <div class="home-mobile-category-grid">${categories.slice(0, 6).map(c => `<a href="#/job-results?browse=1&dept=${encodeURIComponent(c)}"><span>${I('briefcase', 18)}</span><b>${E(c)}</b><small>${allJobs.filter(j => j.department === c).length} roles</small></a>`).join('')}</div>
+              </section>
+              <section class="home-mobile-section">
+                <div class="home-mobile-section-head"><div><span>Fresh opportunities</span><h2>Recent jobs</h2></div><a href="#/job-results?browse=1&sort=date">View all ${I('right', 14)}</a><div class="home-mobile-carousel-controls"><button type="button" data-action="home-carousel" data-target="home-mobile-recent-track" data-dir="-1" aria-label="Previous recent jobs">${I('left', 15)}</button><button type="button" data-action="home-carousel" data-target="home-mobile-recent-track" data-dir="1" aria-label="Next recent jobs">${I('right', 15)}</button></div></div>
+                <div class="home-mobile-job-track" id="home-mobile-recent-track">${(recentJobs.length ? recentJobs : allJobs.slice(0, 4)).map(j => jobCard(j, false)).join('')}</div>
+              </section>
+              <a class="home-mobile-resume" href="${u && u.role === 'candidate' ? '#/app/profile' : '#/register?role=candidate'}"><span class="home-mobile-resume-icon">${I('file', 24)}</span><span><b>Get noticed by pharma employers</b><small>Create your professional profile and take the next step.</small></span>${I('right', 17)}</a>
+              <section class="home-mobile-section">
+                <div class="home-mobile-section-head"><div><span>Career insights</span><h2>Latest articles</h2></div><a href="#/news">See all ${I('right', 14)}</a><div class="home-mobile-carousel-controls"><button type="button" data-action="home-carousel" data-target="home-mobile-article-track" data-dir="-1" aria-label="Previous articles">${I('left', 15)}</button><button type="button" data-action="home-carousel" data-target="home-mobile-article-track" data-dir="1" aria-label="Next articles">${I('right', 15)}</button></div></div>
+                <div class="home-mobile-article-track" id="home-mobile-article-track">${articles.map(article => `<a class="home-mobile-article" href="#/news/${E(article.id)}"><img src="${ui().art(article.id, article.category, 600, 280)}" alt="" loading="lazy"><span><small>${E(article.category)}</small><b>${E(article.title)}</b></span></a>`).join('')}</div>
+              </section>
+            </div>
+            ${u && PL.mobileNav ? PL.mobileNav(u.role, u.role === 'candidate' ? '/app/profile' : '/') : `<nav class="home-mobile-bottomnav" aria-label="Mobile primary navigation"><a class="active" href="#/" aria-current="page"><span>${I('home', 20)}</span><small>Home</small></a><a href="#/job-results?browse=1"><span>${I('briefcase', 20)}</span><small>Jobs</small></a><a class="home-mobile-post" href="#/login" aria-label="Post a job"><span>${I('plus', 22)}</span><small>Post</small></a><a href="#/social"><span>${I('globe', 20)}</span><small>Social</small></a><a href="#/login"><span>${I('dash', 20)}</span><small>Dashboard</small></a></nav>`}
+          </div>
         </div>`;
         return { html, after };
       }, { layout: 'public', title: 'Pharma professionals network' });
   PL.act('brand-scroll', d => { const t = document.getElementById('bs-track'); if (t) t.scrollBy({ left: 140 * Number(d.dir), behavior: 'smooth' }); });
+  PL.act('home-carousel', d => {
+    const track = document.getElementById(d.target);
+    if (!track) return;
+    const card = track.firstElementChild, next = card && card.nextElementSibling;
+    const step = card ? (next ? next.offsetLeft - card.offsetLeft : card.getBoundingClientRect().width) : track.clientWidth * .8;
+    track.scrollBy({ left: Number(d.dir) * step, behavior: 'smooth' });
+  });
+  PL.act('home-hero-go', d => {
+    const track = document.getElementById('home-mobile-hero-track'), index = Number(d.index);
+    if (!track || !Number.isInteger(index) || index < 0 || index >= track.children.length) return;
+    const slide = track.children[index], left = slide.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
+    track.scrollTo({ left, behavior: 'smooth' });
+  });
 })();

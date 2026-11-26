@@ -6,7 +6,7 @@
   const FRESH = [['1', 'Last 1 day'], ['3', 'Last 3 days'], ['7', 'Last 7 days'], ['15', 'Last 15 days'], ['30', 'Last 30 days']];
   const FACET_SEARCH_MIN = 7;
   const CSV = ['mode', 'dept', 'type', 'qual', 'sal', 'city', 'ind', 'company'];
-  const co = j => PL.q.company(j.companyId) || { name: '', industry: '' };
+  const co = j => PL.q.company(j.companyId) || { name: j.companyName || 'Confidential Employer', industry: '' };
   const days = j => Math.max(0, Math.floor((Date.now() - new Date(j.createdAt)) / 864e5));
   const me = () => PL.auth.user();
   const applied = (u, id) => !!(u && PL.q.appFor(u.id, id));
@@ -14,7 +14,7 @@
     const contacts = PL.q.jobContacts(j);
     if (!contacts.length) return '';
     return `<section class="jb-job-contacts"><h3>Contact details</h3>${contacts.map(contact => {
-      const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}">${I('phone', 15)} Call</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
+      const phoneMarkup = (number, type, label) => `<div class="jb-job-contact-actions"><span><b>${label}:</b> ${E(number)}</span>${type === 'Call' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="tel:${E(number)}" aria-label="Call ${E(label.toLowerCase())}" title="Call">${I('phone', 15)}</a>` : ''}${type === 'WhatsApp' || type === 'Call & WhatsApp' ? `<a class="btn btn-secondary btn-sm" href="https://wa.me/${number.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 15)} WhatsApp</a>` : ''}</div>`;
       const phone = contact.showPhone && contact.phone ? phoneMarkup(contact.phone, contact.phoneType, 'Mobile') : '';
       const alternatePhone = contact.showAlternatePhone && contact.alternatePhone ? phoneMarkup(contact.alternatePhone, contact.alternatePhoneType, 'Alternate mobile') : '';
       const email = contact.showEmail && contact.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${E(contact.email)}">${I('mail', 15)} Email ${E(contact.email)}</a>` : '';
@@ -115,8 +115,9 @@
 
   /* ---------- job card ---------- */
   const salTxt = j => {
-    if (!j.salMin) return 'Not disclosed';
     const currency = j.currency || 'INR';
+    if (j.salaryRange && currency === 'INR') return `₹${j.salaryRange.replace('-', '–')} LPA`;
+    if (j.salMin === '' || j.salMin == null) return 'Not disclosed';
     const max = j.salMax || j.salMin;
     if (currency === 'INR') return `₹${j.salMin}-${max} LPA`;
     if (currency === 'USD') return `$${j.salMin}-${max}`;
@@ -663,9 +664,9 @@
     const visibleContacts = PL.q.jobContacts(j);
     if (visibleContacts.length) {
       visibleContacts.forEach(contact => {
-        if (contact.showPhone && contact.phone && (contact.phoneType === 'Call' || contact.phoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.phone)}">${I('phone', 18)} Call ${E(contact.name)}</a>`);
+        if (contact.showPhone && contact.phone && (contact.phoneType === 'Call' || contact.phoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.phone)}" aria-label="Call ${E(contact.name)}" title="Call">${I('phone', 18)}</a>`);
         if (contact.showPhone && contact.phone && (contact.phoneType === 'WhatsApp' || contact.phoneType === 'Call & WhatsApp')) links.push(`<a class="btn btn-secondary jb-contact-option" href="https://wa.me/${contact.phone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 18)} WhatsApp ${E(contact.name)}</a>`);
-        if (contact.showAlternatePhone && contact.alternatePhone && (contact.alternatePhoneType === 'Call' || contact.alternatePhoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.alternatePhone)}">${I('phone', 18)} Call alternate mobile ${E(contact.name)}</a>`);
+        if (contact.showAlternatePhone && contact.alternatePhone && (contact.alternatePhoneType === 'Call' || contact.alternatePhoneType === 'Call & WhatsApp')) links.push(`<a class="btn jb-contact-option" href="tel:${E(contact.alternatePhone)}" aria-label="Call alternate mobile for ${E(contact.name)}" title="Call alternate mobile">${I('phone', 18)}</a>`);
         if (contact.showAlternatePhone && contact.alternatePhone && (contact.alternatePhoneType === 'WhatsApp' || contact.alternatePhoneType === 'Call & WhatsApp')) links.push(`<a class="btn btn-secondary jb-contact-option" href="https://wa.me/${contact.alternatePhone.replace(/\D/g, '')}" target="_blank" rel="noopener noreferrer">${I('message', 18)} WhatsApp alternate mobile ${E(contact.name)}</a>`);
         if (contact.showEmail && contact.email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(contact.email)}">${I('mail', 18)} Email ${E(contact.name)}</a>`);
       });
@@ -674,7 +675,7 @@
     } else {
       const phone = String(recruiter && recruiter.phone || '').replace(/\D/g, ''), email = recruiter && String(recruiter.email || '').trim();
       if (phone) links.push(`<a class="btn jb-contact-option" href="https://wa.me/${phone}" target="_blank" rel="noopener">${I('message', 18)} WhatsApp</a>`);
-      if (phone) links.push(`<a class="btn btn-secondary jb-contact-option" href="tel:${phone}">${I('phone', 18)} Call</a>`);
+      if (phone) links.push(`<a class="btn btn-secondary jb-contact-option" href="tel:${phone}" aria-label="Call recruiter" title="Call">${I('phone', 18)}</a>`);
       if (email) links.push(`<a class="btn btn-secondary jb-contact-option" href="mailto:${E(email)}">${I('mail', 18)} Email</a>`);
     }
     const content = `<p class="muted">${links.length ? `Contact the hiring team for ${E((PL.q.company(j.companyId) || {}).name || 'this job')}.` : j && (Array.isArray(j.contacts) || j.contactVisibility) ? 'The hiring team has chosen not to show contact details to candidates.' : recruiter ? `Contact ${E(recruiter.name)} at ${E((PL.q.company(j.companyId) || {}).name || 'the hiring company')}.` : 'Contact information has not been provided for this job.'}</p>${links.length ? `<div class="jb-contact-options">${links.join('')}</div>` : '<p class="small muted">No contact options are available for this job.</p>'}`;

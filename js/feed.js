@@ -78,7 +78,7 @@
     const top = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 5);
     return `<aside class="stack">${PL.ads ? PL.ads.slot('Sidebar') : ''}${pending ? `<div class="card pad"><a href="#/app/network">${I('userplus', 16)} ${pending} pending connection request${pending > 1 ? 's' : ''}</a></div>` : ''}
       <div class="card pad"><h3>People you may know</h3>${sug.map(p => `<div class="person-row">${ui().avatar(p, 38)}<div class="grow"><a class="bold small" href="#/app/profile/${p.id}">${E(p.name)}</a><div class="xs muted">${E(((p.profile || {}).title) || '')}</div></div><button class="icon-btn" data-action="conn-send" data-id="${p.id}" aria-label="Connect with ${E(p.name)}">${I('userplus', 18)}</button></div>`).join('') || '<p class="muted small">No suggestions.</p>'}</div>
-      <div class="card pad"><h3>Featured jobs</h3>${jobs.map(j => `<div class="person-row"><div class="grow"><a class="bold small" href="#/app/jobs/${j.id}">${E(j.title)}</a><div class="xs muted">${E(PL.q.company(j.companyId).name)}</div></div></div>`).join('')}</div>
+      <div class="card pad"><h3>Featured jobs</h3>${jobs.map(j => `<div class="person-row"><div class="grow"><a class="bold small" href="#/app/jobs/${j.id}">${E(j.title)}</a><div class="xs muted">${E((PL.q.company(j.companyId) || {}).name || j.companyName || 'Confidential Employer')}</div></div></div>`).join('')}</div>
       <div class="card pad"><h3>Trending topics</h3><div class="chips">${top.map(t => `<button class="chip" data-action="feed-tag" data-tag="${E(t[0])}">#${E(t[0])}</button>`).join('')}</div></div></aside>`;
   }
   PL.act('feed-tag', d => { PL.vf('feed').tag = d.tag; PL.vf('feed').tab = 'All'; PL.rerender(); window.scrollTo(0, 0); });

@@ -383,7 +383,9 @@
         showAlternatePhone: !!c.showAlternatePhone,
         showEmail: !!c.showEmail
       }));
-      return includeHidden ? contacts : contacts.filter(c => (c.showPhone && c.phone) || (c.showAlternatePhone && c.alternatePhone) || (c.showEmail && c.email));
+      if (includeHidden) return contacts;
+      if (j.contactVisibility && j.contactVisibility.showContact === false) return [];
+      return contacts.filter(c => (c.showPhone && c.phone) || (c.showAlternatePhone && c.alternatePhone) || (c.showEmail && c.email));
     },
     app: id => db().applications.find(a => a.id === id),
     post: id => db().posts.find(p => p.id === id),
