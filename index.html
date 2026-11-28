@@ -11,26 +11,54 @@
 <link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to main content</a>
-<div id="root"></div>
-<div id="modal-root"></div>
-<div id="toasts" aria-live="polite"></div>
-<noscript>This prototype requires JavaScript.</noscript>
-<script src="js/config.js"></script>
-<script src="js/data.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/router.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/onboarding.js"></script>
-<script src="js/forgot.js"></script>
-<script src="js/jobs.js"></script>
-<script src="js/public.js"></script>
-<script src="js/advertisements.js"></script>
-<script src="js/candidate.js"></script>
-<script src="js/feed.js"></script>
-<script src="js/messaging.js"></script>
-<script src="js/recruiter.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/app.js"></script>
+<script>
+  const TEMPORARY_ACCESS_RESTRICTION = true;
+  const applicationScripts = [
+    'js/config.js',
+    'js/data.js',
+    'js/ui.js',
+    'js/router.js',
+    'js/auth.js',
+    'js/onboarding.js',
+    'js/forgot.js',
+    'js/jobs.js',
+    'js/public.js',
+    'js/advertisements.js',
+    'js/candidate.js',
+    'js/feed.js',
+    'js/messaging.js',
+    'js/recruiter.js',
+    'js/admin.js',
+    'js/app.js'
+  ];
+
+  if (TEMPORARY_ACCESS_RESTRICTION) {
+    document.title = 'Application Access Temporarily Suspended · PharmaLinkIn';
+    document.body.innerHTML = `<main class="renewal-screen">
+      <section class="renewal-card" aria-labelledby="renewal-title">
+        <div class="renewal-brand"><span class="renewal-brand-mark" aria-hidden="true">P</span><span>PharmaLinkIn</span></div>
+        <div class="renewal-illustration" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M18 45h28a10 10 0 0 0 1.4-19.9A16 16 0 0 0 17 22a12 12 0 0 0 1 23Z" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M32 25v12m0 7h.02" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <path d="M46 14l5-5m0 10 6-1" stroke="#E79A42" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="renewal-eyebrow">Service notice</span>
+        <h1 id="renewal-title">Application Access Temporarily Suspended</h1>
+        <p class="renewal-intro">Your free Git-hosted application access has expired.</p>
+        <p class="renewal-copy">To restore access and continue using the application, hosting renewal is required.</p>
+        <p class="renewal-copy">Please contact the application administrator to complete the renewal process.</p>
+        <div class="renewal-required">Renewal Required to Restore Access</div>
+        <p class="renewal-thanks">Thank you for your understanding.</p>
+      </section>
+    </main>`;
+  } else {
+    document.write('<a class="skip" href="#main">Skip to main content</a>');
+    document.write('<div id="root"></div><div id="modal-root"></div><div id="toasts" aria-live="polite"></div>');
+    document.write('<noscript>This prototype requires JavaScript.</noscript>');
+    applicationScripts.forEach(src => document.write('<script src="' + src + '"><' + '/script>'));
+  }
+</script>
 </body>
 </html>

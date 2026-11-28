@@ -499,6 +499,10 @@
       }
     };
         const html = `<div class="home-page">
+          <aside class="home-expiry-notice" aria-label="Temporary access renewal notice">
+            <span class="home-expiry-icon" aria-hidden="true">${I('calendar', 27)}</span>
+            <div class="home-expiry-copy"><span class="home-expiry-kicker">Access update</span><h2>Your Free Access Has Expired!</h2><p>Your complimentary access period has ended. To continue enjoying uninterrupted access to the application, please renew your access.</p><b>Renewal Required <span aria-hidden="true">·</span> Thank You for Your Understanding!</b></div>
+          </aside>
           <div class="home-desktop-home ${u && u.role === 'candidate' ? 'home-page-candidate' : ''}">
           <section class="home-hero"><div class="home-hero-inner">
             <div class="home-brand-line"><span class="home-brand-mark">${I('pill', 22)}</span><span>Pharma jobs. <b>One trusted place.</b></span><span class="home-trust-tag">${I('shield', 14)} Trusted by pharma professionals</span></div>
